@@ -87,36 +87,82 @@ export function analyzeExternalResources(content: string): Array<{
     type: 'font' | 'api' | 'cdn' | 'image' | 'script';
     recommendation: 'preconnect' | 'dns-prefetch' | 'prefetch';
   }> = [];
+  const uniqueUrls = new Set<string>();
   
-  // Extract URLs from various sources
-  const urlRegex = /https?:\/\/[^\s"'<>]+/g;
-  const matches = content.match(urlRegex) || [];
+  // Enhanced URL detection from multiple sources
+  const patterns = [
+    // Standard URLs in attributes
+    /(?:src|href|url)\s*=\s*["']([^"'\s]+)["']/gi,
+    // CSS url() function
+    /url\(["']?([^"'\)\s]+)["']?\)/gi,
+    // Direct HTTP URLs
+    /https?:\/\/[^\s"'<>\)\}]+/gi,
+    // Import statements
+    /import\s+[^\n]*from\s+["']([^"']+)["']/gi,
+    // @import in CSS
+    /@import\s+["']([^"']+)["']/gi,
+    // Link prefetch/preconnect tags
+    /<link[^>]*\s(?:href)=["']([^"']+)["'][^>]*>/gi
+  ];
   
-  matches.forEach(url => {
-    let type: 'font' | 'api' | 'cdn' | 'image' | 'script' = 'cdn';
-    let recommendation: 'preconnect' | 'dns-prefetch' | 'prefetch' = 'prefetch';
-    
-    if (url.includes('fonts.googleapis.com') || url.includes('fonts.gstatic.com')) {
-      type = 'font';
-      recommendation = 'preconnect';
-    } else if (url.includes('api.') || url.includes('/api/')) {
-      type = 'api';
-      recommendation = 'dns-prefetch';
-    } else if (url.includes('cdn.') || url.includes('jsdelivr') || url.includes('unpkg')) {
-      type = 'cdn';
-      recommendation = 'prefetch';
-    } else if (/\.(jpg|jpeg|png|webp|gif|svg)$/i.test(url)) {
-      type = 'image';
-      recommendation = 'prefetch';
-    } else if (/\.(js|css)$/i.test(url)) {
-      type = 'script';
-      recommendation = 'prefetch';
+  patterns.forEach(pattern => {
+    let match;
+    while ((match = pattern.exec(content)) !== null) {
+      const url = match[1] || match[0];
+      if (url && url.startsWith('http') && !uniqueUrls.has(url)) {
+        uniqueUrls.add(url);
+        
+        let type: 'font' | 'api' | 'cdn' | 'image' | 'script' = 'cdn';
+        let recommendation: 'preconnect' | 'dns-prefetch' | 'prefetch' = 'prefetch';
+        
+        // Font resources - should preconnect
+        if (url.includes('fonts.googleapis.com') || url.includes('fonts.gstatic.com') || 
+            url.includes('typekit.net') || url.includes('fonts.com') || 
+            /\.(woff|woff2|ttf|otf|eot)$/i.test(url)) {
+          type = 'font';
+          recommendation = 'preconnect';
+        }
+        // API endpoints - should dns-prefetch
+        else if (url.includes('api.') || url.includes('/api/') || 
+                 url.includes('googleapis.com') && !url.includes('fonts') ||
+                 url.includes('ajax.') || url.includes('rest.') || url.includes('graphql.')) {
+          type = 'api';
+          recommendation = 'dns-prefetch';
+        }
+        // CDN resources - should prefetch
+        else if (url.includes('cdn.') || url.includes('jsdelivr') || url.includes('unpkg') ||
+                 url.includes('cdnjs.') || url.includes('bootstrap') || url.includes('tailwindcss')) {
+          type = 'cdn';
+          recommendation = 'prefetch';
+        }
+        // Images - should prefetch
+        else if (/\.(jpg|jpeg|png|webp|gif|svg|ico|bmp)$/i.test(url)) {
+          type = 'image';
+          recommendation = 'prefetch';
+        }
+        // Scripts and stylesheets - should prefetch
+        else if (/\.(js|css|json)$/i.test(url)) {
+          type = 'script';
+          recommendation = 'prefetch';
+        }
+        // Social media, analytics - should dns-prefetch
+        else if (url.includes('google-analytics.com') || url.includes('facebook.com') ||
+                 url.includes('twitter.com') || url.includes('youtube.com') ||
+                 url.includes('analytics.') || url.includes('tracking.')) {
+          type = 'api';
+          recommendation = 'dns-prefetch';
+        }
+        
+        resources.push({ url, type, recommendation });
+      }
     }
-    
-    resources.push({ url, type, recommendation });
   });
   
-  return resources;
+  // Sort by recommendation priority: preconnect, dns-prefetch, prefetch
+  return resources.sort((a, b) => {
+    const order = { 'preconnect': 0, 'dns-prefetch': 1, 'prefetch': 2 };
+    return order[a.recommendation] - order[b.recommendation];
+  });
 }
 
 // Enhanced code manipulation utilities
