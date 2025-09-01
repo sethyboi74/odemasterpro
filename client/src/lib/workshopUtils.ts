@@ -92,18 +92,28 @@ export function analyzeExternalResources(content: string): Array<{
   const uniqueUrls = new Set<string>();
   const existingTags = new Map<string, 'preconnect' | 'dns-prefetch' | 'prefetch'>();
   
-  // FIRST: Detect existing prefetch/preconnect/dns-prefetch tags
+  // FIRST: Detect existing prefetch/preconnect/dns-prefetch/preload tags
   const existingTagPatterns = [
-    // Match: <link rel="preconnect" href="https://fonts.googleapis.com">
-    /<link[^>]*\s+rel=["']preconnect["'][^>]*\s+href=["']([^"']+)["'][^>]*>/gi,
-    // Match: <link rel="dns-prefetch" href="https://example.com">
-    /<link[^>]*\s+rel=["']dns-prefetch["'][^>]*\s+href=["']([^"']+)["'][^>]*>/gi,
-    // Match: <link rel="prefetch" href="https://example.com/resource.js">
-    /<link[^>]*\s+rel=["']prefetch["'][^>]*\s+href=["']([^"']+)["'][^>]*>/gi,
-    // Alternative order: href first, then rel
-    /<link[^>]*\s+href=["']([^"']+)["'][^>]*\s+rel=["']preconnect["'][^>]*>/gi,
-    /<link[^>]*\s+href=["']([^"']+)["'][^>]*\s+rel=["']dns-prefetch["'][^>]*>/gi,
-    /<link[^>]*\s+href=["']([^"']+)["'][^>]*\s+rel=["']prefetch["'][^>]*>/gi
+    // Enhanced patterns to catch all variations with flexible attribute order
+    // Pattern 1: rel="preconnect" with any attribute order
+    /<link[^>]*\brel=["']preconnect["'][^>]*\bhref=["']([^"']+)["'][^>]*>/gi,
+    /<link[^>]*\bhref=["']([^"']+)["'][^>]*\brel=["']preconnect["'][^>]*>/gi,
+    
+    // Pattern 2: rel="dns-prefetch" with any attribute order  
+    /<link[^>]*\brel=["']dns-prefetch["'][^>]*\bhref=["']([^"']+)["'][^>]*>/gi,
+    /<link[^>]*\bhref=["']([^"']+)["'][^>]*\brel=["']dns-prefetch["'][^>]*>/gi,
+    
+    // Pattern 3: rel="prefetch" with any attribute order
+    /<link[^>]*\brel=["']prefetch["'][^>]*\bhref=["']([^"']+)["'][^>]*>/gi,
+    /<link[^>]*\bhref=["']([^"']+)["'][^>]*\brel=["']prefetch["'][^>]*>/gi,
+    
+    // Pattern 4: rel="preload" with any attribute order (treat as prefetch)
+    /<link[^>]*\brel=["']preload["'][^>]*\bhref=["']([^"']+)["'][^>]*>/gi,
+    /<link[^>]*\bhref=["']([^"']+)["'][^>]*\brel=["']preload["'][^>]*>/gi,
+    
+    // Pattern 5: rel="stylesheet" (treat as prefetch for CSS)
+    /<link[^>]*\brel=["']stylesheet["'][^>]*\bhref=["']([^"']+)["'][^>]*>/gi,
+    /<link[^>]*\bhref=["']([^"']+)["'][^>]*\brel=["']stylesheet["'][^>]*>/gi
   ];
   
   existingTagPatterns.forEach((pattern, index) => {
@@ -112,13 +122,23 @@ export function analyzeExternalResources(content: string): Array<{
     pattern.lastIndex = 0;
     while ((match = pattern.exec(content)) !== null) {
       const url = match[1];
-      if (url && url.startsWith('http')) {
+      if (url) {
         let relType: 'preconnect' | 'dns-prefetch' | 'prefetch';
-        if (index < 2) relType = 'preconnect';
-        else if (index < 4) relType = 'dns-prefetch';
-        else relType = 'prefetch';
+        // Map pattern index to rel type
+        if (index < 2) relType = 'preconnect';        // patterns 0-1: preconnect
+        else if (index < 4) relType = 'dns-prefetch'; // patterns 2-3: dns-prefetch
+        else if (index < 6) relType = 'prefetch';     // patterns 4-5: prefetch
+        else if (index < 8) relType = 'prefetch';     // patterns 6-7: preload -> prefetch
+        else relType = 'prefetch';                    // patterns 8-9: stylesheet -> prefetch
         
-        existingTags.set(url, relType);
+        // Convert relative URLs to absolute URLs if possible
+        let fullUrl = url;
+        if (!url.startsWith('http') && !url.startsWith('//')) {
+          // Handle relative URLs by marking them as detected
+          fullUrl = url.startsWith('/') ? url : `/${url}`;
+        }
+        
+        existingTags.set(fullUrl, relType);
       }
     }
   });
@@ -143,7 +163,8 @@ export function analyzeExternalResources(content: string): Array<{
     pattern.lastIndex = 0;
     while ((match = pattern.exec(content)) !== null) {
       const url = match[1] || match[0];
-      if (url && url.startsWith('http') && !uniqueUrls.has(url)) {
+      // Accept both absolute HTTP URLs and relative URLs
+      if (url && (url.startsWith('http') || url.startsWith('/') || url.match(/^[a-zA-Z0-9_-]+\.(html|js|css|png|jpg|gif|svg|json|woff|woff2)$/i)) && !uniqueUrls.has(url)) {
         uniqueUrls.add(url);
         
         let type: 'font' | 'api' | 'cdn' | 'image' | 'script' = 'cdn';

@@ -240,14 +240,26 @@ export default function PrefetchWorkshop({ files, onClose, sendMessage }: Prefet
             <div className="space-y-3">
               <div>
                 <label className="text-xs font-medium text-muted-foreground block mb-1">URL</label>
-                <input 
-                  type="url"
-                  value={manualUrl}
-                  onChange={(e) => setManualUrl(e.target.value)}
-                  placeholder="https://fonts.googleapis.com/css2?family=Inter"
-                  className="w-full px-2 py-1 text-sm border border-border rounded"
-                  data-testid="input-manual-url"
-                />
+                <div className="relative">
+                  <input 
+                    type="url"
+                    value={manualUrl}
+                    onChange={(e) => setManualUrl(e.target.value)}
+                    placeholder="https://fonts.googleapis.com/css2?family=Inter"
+                    className="w-full px-2 py-1 pr-8 text-sm border border-border rounded"
+                    data-testid="input-manual-url"
+                  />
+                  {manualUrl && (
+                    <button
+                      onClick={() => setManualUrl('')}
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 hover:bg-muted/50 rounded"
+                      data-testid="button-clear-manual-url"
+                      title="Clear URL"
+                    >
+                      <i className="fas fa-times text-xs text-muted-foreground"></i>
+                    </button>
+                  )}
+                </div>
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground block mb-1">Type</label>
@@ -288,9 +300,11 @@ export default function PrefetchWorkshop({ files, onClose, sendMessage }: Prefet
                       key={index}
                       className={`p-2 rounded cursor-pointer transition-colors ${
                         selectedResources.includes(resource.url) 
-                          ? 'bg-primary/20 border border-primary/30' 
-                          : 'bg-muted/30 hover:bg-muted/50'
-                      } ${hasExisting ? 'bg-green-50 border-green-200' : ''}`}
+                          ? 'bg-green-100 border-2 border-green-500 shadow-md' 
+                          : hasExisting 
+                            ? 'bg-green-50 border border-green-200 hover:bg-green-100' 
+                            : 'bg-muted/30 hover:bg-muted/50 border border-transparent'
+                      }`}
                       onClick={() => toggleResource(resource.url)}
                       data-testid={`resource-item-${index}`}
                     >
@@ -299,20 +313,20 @@ export default function PrefetchWorkshop({ files, onClose, sendMessage }: Prefet
                         <div className="text-sm font-mono text-primary truncate">
                           {new URL(resource.url).hostname}
                         </div>
-                        {hasExisting && (
+                        {hasExisting ? (
                           <span className="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700">
                             ✓ exists
                           </span>
-                        )}
-                        {isManual && (
+                        ) : null}
+                        {isManual ? (
                           <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
                             ✋ manual
                           </span>
-                        )}
+                        ) : null}
                       </div>
                       <div className="text-xs text-muted-foreground mb-1">
                         {resource.type} resource - Recommend {resource.recommendation}
-                        {hasExisting && ` (has ${(resource as any).existing})`}
+                        {hasExisting ? ` (has ${String((resource as any).existing || 'existing')})` : ''}
                       </div>
                       <div className="flex gap-1 items-center">
                         <span className={`px-2 py-0.5 text-xs rounded ${getRecommendationColor(resource.recommendation)}`}>

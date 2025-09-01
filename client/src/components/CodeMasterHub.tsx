@@ -509,13 +509,29 @@ document.addEventListener('DOMContentLoaded', function() {
                     className="w-full px-3 py-2 text-xs bg-background border border-border rounded-md font-mono"
                     data-testid="input-search"
                   />
-                  <button
-                    onClick={performSearch}
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 hover:bg-muted/50 rounded"
-                    data-testid="button-search"
-                  >
-                    <i className="fas fa-search text-xs text-muted-foreground"></i>
-                  </button>
+                  <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex gap-1">
+                    {searchTerm && (
+                      <button
+                        onClick={() => {
+                          setSearchTerm('');
+                          setSearchResults([]);
+                        }}
+                        className="p-1 hover:bg-muted/50 rounded"
+                        data-testid="button-clear-search-x"
+                        title="Clear search"
+                      >
+                        <i className="fas fa-times text-xs text-muted-foreground"></i>
+                      </button>
+                    )}
+                    <button
+                      onClick={performSearch}
+                      className="p-1 hover:bg-muted/50 rounded"
+                      data-testid="button-search"
+                      title="Search"
+                    >
+                      <i className="fas fa-search text-xs text-muted-foreground"></i>
+                    </button>
+                  </div>
                 </div>
                 
                 {/* Search control buttons */}

@@ -292,7 +292,11 @@ export default function CSSWorkshop({ files, onClose, sendMessage }: CSSWorkshop
                 cssRules.map((rule, index) => (
                   <div
                     key={`${rule.fileId}-${index}`}
-                    className="p-2 bg-muted/30 rounded cursor-pointer hover:bg-muted/50 transition-colors"
+                    className={`p-2 rounded cursor-pointer transition-colors ${
+                      selectedRule === rule.selector
+                        ? 'bg-green-100 border-2 border-green-500 shadow-md'
+                        : 'bg-muted/30 hover:bg-muted/50 border border-transparent'
+                    }`}
                     onClick={() => handleRuleSelect(rule)}
                     data-testid={`css-rule-${index}`}
                   >
