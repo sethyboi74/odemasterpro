@@ -64,6 +64,9 @@ export default function CSSWorkshop({ files, onClose, sendMessage }: CSSWorkshop
       .map(([prop, value]) => `  ${prop}: ${value};`)
       .join('\n')}\n}`;
     setEditedCSS(cssText);
+    
+    // Immediately update preview when selecting a new rule
+    updatePreview(cssText);
   };
 
   const handleCreateNew = () => {
