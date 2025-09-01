@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { ProjectFile, WorkshopMessage } from '@/types/workshop';
 import { analyzeExternalResources, CodeManipulator } from '@/lib/workshopUtils';
 
@@ -10,6 +10,12 @@ interface PrefetchWorkshopProps {
 
 export default function PrefetchWorkshop({ files, onClose, sendMessage }: PrefetchWorkshopProps) {
   const [selectedResources, setSelectedResources] = useState<string[]>([]);
+
+  // Refresh when files change
+  useEffect(() => {
+    // Reset selections when files change to force refresh
+    setSelectedResources([]);
+  }, [files]);
 
   const detectedResources = useMemo(() => {
     const allContent = files.map(f => f.content).join('\n');

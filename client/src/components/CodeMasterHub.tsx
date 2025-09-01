@@ -31,6 +31,7 @@ export default function CodeMasterHub() {
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
   const toolInputRef = useRef<HTMLInputElement>(null);
+  const mainEditorRef = useRef<HTMLTextAreaElement>(null);
   
   // Stats computation
   const stats = useMemo(() => {
@@ -173,7 +174,37 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }, [toast]);
 
-  // Search functionality
+  // Enhanced search with auto-focus
+  const focusOnLine = useCallback((lineNumber: number) => {
+    if (!mainEditorRef.current) return;
+    
+    const textarea = mainEditorRef.current;
+    const lines = currentCode.split('\n');
+    
+    // Calculate character position for the line
+    let charPosition = 0;
+    for (let i = 0; i < lineNumber - 1; i++) {
+      charPosition += lines[i].length + 1; // +1 for newline character
+    }
+    
+    // Focus and select the line
+    textarea.focus();
+    textarea.setSelectionRange(charPosition, charPosition + lines[lineNumber - 1].length);
+    
+    // Scroll to the line
+    const lineHeight = parseInt(getComputedStyle(textarea).lineHeight) || 20;
+    textarea.scrollTop = Math.max(0, (lineNumber - 3) * lineHeight);
+    
+    // Add temporary highlight effect
+    textarea.style.transition = 'background-color 0.3s';
+    const originalBg = textarea.style.backgroundColor;
+    textarea.style.backgroundColor = 'rgba(88, 166, 255, 0.1)';
+    setTimeout(() => {
+      textarea.style.backgroundColor = originalBg;
+    }, 1000);
+  }, [currentCode]);
+
+  // Search functionality  
   const performSearch = useCallback(() => {
     if (!searchTerm.trim() || !currentCode) {
       setSearchResults([]);
@@ -201,12 +232,47 @@ document.addEventListener('DOMContentLoaded', function() {
         variant: 'destructive'
       });
     } else {
+      // Auto-focus on first result
+      if (results.length > 0) {
+        setTimeout(() => focusOnLine(results[0].line), 100);
+      }
+      
       toast({
         title: 'Search Complete',
         description: `Found ${results.length} matches`
       });
     }
-  }, [searchTerm, currentCode, toast]);
+  }, [searchTerm, currentCode, toast, focusOnLine]);
+
+  // Auto-refresh preview when code changes
+  useEffect(() => {
+    if (showPreview && currentCode) {
+      // Clean up old URL
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+      
+      // Create new preview URL
+      const blob = new Blob([currentCode], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      setPreviewUrl(url);
+    }
+  }, [currentCode, showPreview]);
+
+  // Manual preview refresh
+  const refreshPreview = useCallback(() => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    
+    const blob = new Blob([currentCode], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    setPreviewUrl(url);
+    
+    if (!showPreview) {
+      setShowPreview(true);
+    }
+  }, [currentCode, showPreview, previewUrl]);
 
   // Preview management
   const togglePreview = useCallback(() => {
@@ -458,6 +524,7 @@ document.addEventListener('DOMContentLoaded', function() {
                       <div 
                         key={index}
                         className="flex items-center gap-2 p-2 border-b border-border last:border-b-0 hover:bg-muted/30 cursor-pointer text-xs"
+                        onClick={() => focusOnLine(result.line)}
                         data-testid={`search-result-${index}`}
                       >
                         <div className="bg-accent/20 text-accent px-2 py-0.5 rounded text-xs font-mono min-w-12 text-center">
@@ -623,6 +690,7 @@ document.addEventListener('DOMContentLoaded', function() {
                   ))}
                 </div>
                 <textarea
+                  ref={mainEditorRef}
                   value={currentCode}
                   onChange={(e) => setCurrentCode(e.target.value)}
                   placeholder="Start coding here or load a template..."
@@ -708,6 +776,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     data-testid="button-toggle-preview"
                   >
                     👁️ {showPreview ? 'Hide' : 'Show'} Preview
+                  </button>
+                  <button 
+                    className="px-3 py-1 text-xs bg-secondary hover:bg-secondary/80 text-secondary-foreground rounded transition-colors"
+                    onClick={refreshPreview}
+                    data-testid="button-refresh-preview"
+                  >
+                    🔄 Refresh
                   </button>
                   {previewUrl && (
                     <button 

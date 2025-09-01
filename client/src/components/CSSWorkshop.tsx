@@ -12,6 +12,8 @@ export default function CSSWorkshop({ files, onClose, sendMessage }: CSSWorkshop
   const [selectedRule, setSelectedRule] = useState<string>('');
   const [editedCSS, setEditedCSS] = useState<string>('');
   const [previewUrl, setPreviewUrl] = useState<string>('');
+  const [newCSSRule, setNewCSSRule] = useState<string>('');
+  const [isCreatingNew, setIsCreatingNew] = useState<boolean>(false);
 
   const cssRules = useMemo(() => {
     const allRules: Array<{
@@ -55,6 +57,8 @@ export default function CSSWorkshop({ files, onClose, sendMessage }: CSSWorkshop
   }, [files]);
 
   const handleRuleSelect = (rule: any) => {
+    setIsCreatingNew(false);
+    setNewCSSRule('');
     setSelectedRule(rule.selector);
     const cssText = `${rule.selector} {\n${Object.entries(rule.properties)
       .map(([prop, value]) => `  ${prop}: ${value};`)
@@ -62,12 +66,41 @@ export default function CSSWorkshop({ files, onClose, sendMessage }: CSSWorkshop
     setEditedCSS(cssText);
   };
 
+  const handleCreateNew = () => {
+    setIsCreatingNew(true);
+    setSelectedRule('');
+    setEditedCSS('');
+    setNewCSSRule('.new-rule {\n  /* Add your styles here */\n  color: #333;\n  background: #fff;\n}');
+  };
+
   const updatePreview = (css: string) => {
     const previewHTML = `
-      <style>${css}</style>
-      <div class="container">Container Preview</div>
-      <div class="hero">Hero Section Preview</div>
-    `;
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSS Preview</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+    ${css}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Preview Content</h1>
+    <p>This is a sample paragraph to demonstrate your CSS.</p>
+    <div class="hero">Hero Section</div>
+    <div class="card">Card Component</div>
+    <button class="btn">Sample Button</button>
+  </div>
+</body>
+</html>`;
+    
+    // Clean up previous URL
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
     
     const blob = new Blob([previewHTML], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
@@ -75,10 +108,23 @@ export default function CSSWorkshop({ files, onClose, sendMessage }: CSSWorkshop
   };
 
   useEffect(() => {
-    if (editedCSS) {
-      updatePreview(editedCSS);
+    if (editedCSS || newCSSRule) {
+      updatePreview(editedCSS || newCSSRule);
     }
-  }, [editedCSS]);
+  }, [editedCSS, newCSSRule]);
+
+  // Refresh when files change
+  useEffect(() => {
+    // Reset selections when files change to force refresh
+    setSelectedRule('');
+    setEditedCSS('');
+    setNewCSSRule('');
+    setIsCreatingNew(false);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl('');
+    }
+  }, [files]);
 
   const handleApplyChanges = () => {
     if (!selectedRule || !editedCSS) return;
@@ -145,6 +191,97 @@ export default function CSSWorkshop({ files, onClose, sendMessage }: CSSWorkshop
     }
   };
 
+  const handleApplyNewCSS = () => {
+    if (!newCSSRule.trim()) return;
+    
+    // Find appropriate file to append new CSS
+    const cssFile = files.find(f => f.type === 'css');
+    const htmlFile = files.find(f => f.type === 'html');
+    
+    if (cssFile) {
+      // Append to CSS file
+      const modifiedContent = cssFile.content + '\n\n' + newCSSRule.trim();
+      
+      sendMessage(null, {
+        type: 'WORKSHOP_APPLY_PATCH',
+        workshopId: 'css-workshop',
+        data: {
+          code: modifiedContent,
+          summary: `Added new CSS rule to ${cssFile.name}`,
+          changes: [{
+            type: 'append',
+            description: 'New CSS rule added',
+            location: `End of ${cssFile.name}`
+          }]
+        }
+      });
+      
+    } else if (htmlFile) {
+      // Append to HTML file within style tags or create new style section
+      try {
+        const manipulator = new CodeManipulator(htmlFile.content);
+        let modifiedContent = htmlFile.content;
+        
+        // Check if there are existing <style> tags
+        const styleRegex = /<style[^>]*>([\s\S]*?)<\/style>/gi;
+        const hasStyleTags = styleRegex.test(htmlFile.content);
+        
+        if (hasStyleTags) {
+          // Append to existing style section
+          modifiedContent = htmlFile.content.replace(
+            /(<\/style>)/i, 
+            `\n${newCSSRule}\n$1`
+          );
+        } else {
+          // Create new style section in head
+          const headLocation = manipulator.findHtmlHead();
+          if (headLocation) {
+            const styleSection = `\n    <style>\n${newCSSRule}\n    </style>\n`;
+            modifiedContent = manipulator.insertAtLocation(headLocation, styleSection, false);
+          }
+        }
+        
+        sendMessage(null, {
+          type: 'WORKSHOP_APPLY_PATCH',
+          workshopId: 'css-workshop',
+          data: {
+            code: modifiedContent,
+            summary: `Added new CSS rule to ${htmlFile.name}`,
+            changes: [{
+              type: 'append',
+              description: 'New CSS rule added to style section',
+              location: hasStyleTags ? 'Existing <style> tags' : 'New <style> section in <head>'
+            }]
+          }
+        });
+        
+      } catch (error) {
+        console.error('Failed to append CSS to HTML:', error);
+        // Fallback: send just the CSS rule
+        sendMessage(null, {
+          type: 'WORKSHOP_APPLY_PATCH',
+          workshopId: 'css-workshop',
+          data: {
+            code: newCSSRule,
+            summary: 'New CSS rule created (manual insertion required)'
+          }
+        });
+      }
+    } else {
+      // No appropriate file found, send just the CSS
+      sendMessage(null, {
+        type: 'WORKSHOP_APPLY_PATCH',
+        workshopId: 'css-workshop',
+        data: {
+          code: newCSSRule,
+          summary: 'New CSS rule created (no CSS/HTML file found for automatic insertion)'
+        }
+      });
+    }
+    
+    onClose();
+  };
+
   return (
     <div className="max-w-6xl mx-auto my-8 h-[calc(100vh-4rem)] bg-card border border-border rounded-lg shadow-2xl flex flex-col">
       {/* Workshop Header */}
@@ -206,17 +343,25 @@ export default function CSSWorkshop({ files, onClose, sendMessage }: CSSWorkshop
             <h3 className="text-sm font-semibold mb-3">Batch Operations</h3>
             <div className="space-y-2">
               <button 
+                className="w-full btn-secondary px-3 py-2 rounded text-sm"
+                onClick={handleCreateNew}
+                data-testid="button-create-new-css"
+              >
+                ✨ Create New CSS Rule
+              </button>
+              <button 
                 className="w-full btn-primary px-3 py-2 rounded text-sm"
                 data-testid="button-standardize-rules"
               >
-                Standardize All Rules
+                🔧 Standardize All Rules
               </button>
               <button 
-                className="w-full btn-secondary px-3 py-2 rounded text-sm"
-                onClick={handleApplyChanges}
+                className="w-full btn-primary px-3 py-2 rounded text-sm"
+                onClick={isCreatingNew ? handleApplyNewCSS : handleApplyChanges}
+                disabled={!editedCSS && !newCSSRule}
                 data-testid="button-apply-to-codemaster"
               >
-                Apply to CodeMaster
+                {isCreatingNew ? '📝 Add New CSS' : '🔄 Update Existing'}
               </button>
             </div>
           </div>
@@ -226,7 +371,9 @@ export default function CSSWorkshop({ files, onClose, sendMessage }: CSSWorkshop
         <div className="col-span-8 space-y-4">
           <div className="tool-panel h-80">
             <div className="p-3 border-b border-border">
-              <h4 className="text-sm font-semibold">CSS Rule Editor</h4>
+              <h4 className="text-sm font-semibold">
+                {isCreatingNew ? 'Create New CSS Rule' : 'CSS Rule Editor'}
+              </h4>
             </div>
             <div className="flex h-full">
               <div className="w-12 bg-muted/30 text-right px-2 py-3 text-xs text-muted-foreground font-mono border-r border-border">
@@ -236,9 +383,9 @@ export default function CSSWorkshop({ files, onClose, sendMessage }: CSSWorkshop
               </div>
               <textarea 
                 className="flex-1 p-3 bg-transparent text-sm font-mono resize-none outline-none"
-                placeholder="Select a CSS rule to edit..."
-                value={editedCSS}
-                onChange={(e) => setEditedCSS(e.target.value)}
+                placeholder={isCreatingNew ? "Enter new CSS rule..." : "Select a CSS rule to edit..."}
+                value={isCreatingNew ? newCSSRule : editedCSS}
+                onChange={(e) => isCreatingNew ? setNewCSSRule(e.target.value) : setEditedCSS(e.target.value)}
                 data-testid="textarea-css-editor"
               />
             </div>
