@@ -1,0 +1,67 @@
+You are refactoring and optimizing a project called **CodeMaster Pro**.  
+The project is a code-analysis and editing hub with modular external tools.  
+
+## Current Files & Roles
+1. **CodeMaster_Pro_edited.html**
+   - Main app hub (UI + project window + overlay manager).
+   - Hosts toolbar, project editor, preview, search/focus, diff viewer.
+   - Can open overlays (workshops) like CSS Editor and Prefetch/Preconnect.
+   - Supports external tool uploaders (sandboxed .js/.json).
+   - Tracks changes, line numbers, stats.
+
+2. **CSS Editor.html**
+   - Full CSS Standardizer tool.
+   - Can load HTML files, extract CSS from `<style>` tags, analyze, edit, replace rules.
+   - Has batch editor, preview, apply back to CodeMaster.
+
+3. **Fetch-Connect Editor.html**
+   - Optimizer for `<link rel="prefetch/preconnect">`.
+   - Analyzes external links, suggests prefetch/preconnect strategies.
+   - UI mirrors CSS editor style.
+
+4. **Spacing_tool.js**
+   - Tool module exporting `{ name, version, run() }`.
+   - Performs normalization: 2-space indentation, trim trailing spaces, collapse blanks.
+   - Runs inside CodeMaster’s tool processor.
+
+## My Editing Method
+- I prefer **exact code replacement** instructions: show me what string to search, what block to highlight, and the exact replacement code to paste.
+- I do **one file at a time**, preserving structure integrity.
+- I want **UI/UX kept consistent** across tools: overlays should share design, navigation, and feel integrated.
+- Always include **logs/console output** so I can debug flows between parent (CodeMaster) and child (tool).
+
+## Goals for this Refactor
+1. **Unify Overlay System**
+   - Both CSS Editor and Prefetch/Preconnect should open in self-contained overlays inside CodeMaster.
+   - Overlays should use `srcdoc` injection (so they work in Go High Level, no local file loading).
+   - Parent ↔ child communication should use `postMessage` with clear protocols (`WORKSHOP_READY`, `WORKSHOP_REQUEST_CODE`, `INJECT_HTML`, `WORKSHOP_APPLY_PATCH`, etc.).
+
+2. **Cross-Tool Interop**
+   - Tools (CSS, Prefetch, Spacing, etc.) should be able to amend and create separately **but still push edits into the project window** (`state.currentCode`).
+   - Any change in a tool updates the project window editor and triggers stats/preview update.
+   - Tools should be able to insert/delete safely without breaking structure.
+
+3. **Optimization & Organization**
+   - Consolidate repeated functions (file upload, preview, messaging) into shared utilities.
+   - Reduce redundant CSS/JS across tools by creating a common style and message handler.
+   - Ensure tools run sandboxed but follow the same handshake protocol.
+
+4. **Enhanced Features**
+   - CSS Workshop: parse CSS rules with positions, allow editing, replacing, inserting safely, and focusing on lines in the project window.
+   - Prefetch Workshop: analyze external assets, recommend safe insertions of `<link rel="prefetch">` and `<link rel="preconnect">`.
+   - Space Formatter Tool: callable from main hub and overlay, applies formatting in place.
+   - Diff Viewer: show unified diffs for all tool edits, with visual highlighting.
+   - Support **cross-platform** (desktop, Go High Level, Replit) with no file-system dependencies.
+
+5. **Research Requirement**
+   - Study popular web-based IDEs (VS Code Web, CodeSandbox, StackBlitz, Glitch).
+   - Adopt best practices: modular tool panels, side-by-side diffing, live preview sync, message bus for tool ↔ host communication.
+   - Optimize for performance in browsers: prefer `srcdoc` + sandbox iframes for overlays, use Blob URLs for previews, minimize DOM churn.
+
+## Final Deliverable
+A **powerful, extensible CodeMaster Pro**:
+- Cleanly organized source files with modular overlays.
+- Cross-tool message bus (parent ↔ child).
+- Shared styling + UX across all tools.
+- Fast performance, safe sandboxing.
+- Enhances my code-making abilities and supports AI function by making edits easier, safer, and more powerful.
