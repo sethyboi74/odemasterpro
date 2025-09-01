@@ -516,11 +516,11 @@ document.addEventListener('DOMContentLoaded', function() {
                           setSearchTerm('');
                           setSearchResults([]);
                         }}
-                        className="p-1 hover:bg-red-100 rounded text-red-600 hover:text-red-800 bg-red-50 border border-red-200 font-bold"
+                        className="p-1 hover:bg-muted/50 rounded text-muted-foreground hover:text-foreground"
                         data-testid="button-clear-search-x"
                         title="Clear search"
                       >
-                        ✕
+                        ❌
                       </button>
                     )}
                     <button
