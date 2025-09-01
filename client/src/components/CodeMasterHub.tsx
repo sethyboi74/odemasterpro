@@ -623,33 +623,80 @@ document.addEventListener('DOMContentLoaded', function() {
                   </button>
                 )}
 
-                <div className="grid grid-cols-3 gap-2">
+                {/* Download Section */}
+                <div className="mb-3">
                   <button 
-                    className="btn-secondary px-2 py-1.5 rounded text-xs"
-                    onClick={togglePreview}
-                    data-testid="button-live-preview"
-                  >
-                    <i className="fas fa-eye"></i>
-                  </button>
-                  <button 
-                    className="bg-muted hover:bg-muted/80 px-2 py-1.5 rounded text-xs transition-colors"
+                    className="w-full btn-primary px-3 py-2 rounded text-sm flex items-center justify-center gap-2"
                     onClick={() => {
                       const blob = new Blob([currentCode], { type: 'text/html' });
                       const url = URL.createObjectURL(blob);
                       const a = document.createElement('a');
                       a.href = url;
-                      a.download = currentFilename || 'code.html';
+                      a.download = currentFilename || 'modified-code.html';
                       a.click();
                       URL.revokeObjectURL(url);
+                      toast({
+                        title: 'Download Complete',
+                        description: `Downloaded ${currentFilename || 'modified-code.html'}`
+                      });
                     }}
-                    data-testid="button-download"
+                    disabled={!currentCode}
+                    data-testid="button-download-current"
                   >
-                    <i className="fas fa-save"></i>
+                    <i className="fas fa-download"></i>
+                    Download Current Code
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <button 
+                    className="btn-secondary px-2 py-1.5 rounded text-xs flex items-center justify-center"
+                    onClick={togglePreview}
+                    data-testid="button-live-preview"
+                    title="Toggle Live Preview"
+                  >
+                    <i className="fas fa-eye"></i>
                   </button>
                   <button 
-                    className="bg-muted hover:bg-muted/80 px-2 py-1.5 rounded text-xs transition-colors"
+                    className="bg-accent/20 hover:bg-accent/30 text-accent px-2 py-1.5 rounded text-xs transition-colors flex items-center justify-center"
+                    onClick={() => {
+                      if (files.length === 0) {
+                        toast({
+                          title: 'No Files',
+                          description: 'Upload files first to download as ZIP',
+                          variant: 'destructive'
+                        });
+                        return;
+                      }
+                      
+                      // Create a simple ZIP-like structure as text file
+                      const allFilesContent = files.map(file => 
+                        `=== ${file.name} ===\n${file.content}\n\n`
+                      ).join('');
+                      
+                      const blob = new Blob([allFilesContent], { type: 'text/plain' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = 'codemaster-project-files.txt';
+                      a.click();
+                      URL.revokeObjectURL(url);
+                      
+                      toast({
+                        title: 'Project Downloaded',
+                        description: `Downloaded ${files.length} files as text archive`
+                      });
+                    }}
+                    data-testid="button-download-all"
+                    title="Download All Files"
+                  >
+                    <i className="fas fa-file-archive"></i>
+                  </button>
+                  <button 
+                    className="bg-muted hover:bg-muted/80 px-2 py-1.5 rounded text-xs transition-colors flex items-center justify-center"
                     onClick={resetProject}
                     data-testid="button-reset"
+                    title="Reset Project"
                   >
                     <i className="fas fa-undo"></i>
                   </button>

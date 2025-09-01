@@ -953,17 +953,51 @@ const CodeMasterHub = () => {
                                     🔄 Run File Code
                                 </button>
                                 <button 
-                                    className="px-3 py-1.5 rounded text-xs bg-gray-700 hover:bg-gray-600 transition-colors text-white"
-                                    onClick={togglePreview}
+                                    className="w-full btn-secondary px-3 py-2 rounded text-sm flex items-center justify-center gap-2 mb-2"
+                                    onClick={() => {
+                                        if (!currentCode) {
+                                            toast({
+                                                title: 'No Code',
+                                                description: 'Nothing to download',
+                                                variant: 'destructive'
+                                            });
+                                            return;
+                                        }
+                                        const blob = new Blob([currentCode], { type: 'text/html' });
+                                        const url = URL.createObjectURL(blob);
+                                        const a = document.createElement('a');
+                                        a.href = url;
+                                        a.download = currentFilename || 'modified-code.html';
+                                        a.click();
+                                        URL.revokeObjectURL(url);
+                                        toast({
+                                            title: 'Download Complete',
+                                            description: `Downloaded ${currentFilename || 'modified-code.html'}`
+                                        });
+                                    }}
                                 >
-                                    👁️ {showPreview ? 'Hide' : 'Show'} Preview
+                                    📥 Download Current Code
                                 </button>
-                                <button 
-                                    className="px-3 py-1.5 rounded text-xs bg-gray-600 hover:bg-gray-500 transition-colors text-white"
-                                    onClick={refreshPreview}
-                                >
-                                    🔄 Refresh
-                                </button>
+                                <div className="grid grid-cols-3 gap-2">
+                                    <button 
+                                        className="px-3 py-1.5 rounded text-xs bg-gray-700 hover:bg-gray-600 transition-colors text-white"
+                                        onClick={togglePreview}
+                                    >
+                                        👁️ Preview
+                                    </button>
+                                    <button 
+                                        className="px-3 py-1.5 rounded text-xs bg-gray-600 hover:bg-gray-500 transition-colors text-white"
+                                        onClick={refreshPreview}
+                                    >
+                                        🔄 Refresh
+                                    </button>
+                                    <button 
+                                        className="px-3 py-1.5 rounded text-xs bg-red-600 hover:bg-red-700 transition-colors text-white"
+                                        onClick={resetProject}
+                                    >
+                                        🔄 Reset
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
