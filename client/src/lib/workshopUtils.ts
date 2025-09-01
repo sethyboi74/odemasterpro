@@ -387,3 +387,48 @@ export function parseCSS(content: string): Array<{
   
   return rules;
 }
+
+// Parse CSS rules from multiple files with accurate line numbers
+export const parseCSSFromFiles = (files: ProjectFile[]) => {
+  const cssFiles = files.filter(f => f.type === 'css');
+  const htmlFiles = files.filter(f => f.type === 'html');
+  
+  let allRules: any[] = [];
+  
+  // Parse dedicated CSS files
+  cssFiles.forEach(file => {
+    const rules = parseCSS(file.content);
+    allRules = allRules.concat(rules.map(rule => ({ 
+      ...rule, 
+      source: file.name,
+      fileName: file.name,
+      // Line numbers are 0-based, add 1 for display
+      lineNumber: rule.startLine + 1,
+      endLineNumber: rule.endLine + 1
+    })));
+  });
+  
+  // Parse CSS from HTML style tags
+  htmlFiles.forEach(file => {
+    const styleRegex = /<style[^>]*>([\s\S]*?)<\/style>/gi;
+    let match;
+    
+    while ((match = styleRegex.exec(file.content)) !== null) {
+      const cssContent = match[1];
+      const styleTagStart = file.content.substring(0, match.index);
+      const styleTagLineOffset = styleTagStart.split('\n').length;
+      
+      const rules = parseCSS(cssContent);
+      allRules = allRules.concat(rules.map(rule => ({ 
+        ...rule, 
+        source: `${file.name} (inline)`,
+        fileName: file.name,
+        // Adjust line numbers for HTML context (0-based to 1-based, plus offset)
+        lineNumber: rule.startLine + styleTagLineOffset + 1,
+        endLineNumber: rule.endLine + styleTagLineOffset + 1
+      })));
+    }
+  });
+  
+  return allRules;
+};

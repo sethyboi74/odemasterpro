@@ -149,8 +149,9 @@ document.addEventListener('DOMContentLoaded', function() {
     if (newFiles.length > 0) {
       setCurrentCode(newFiles[0].content);
       setCurrentFilename(newFiles[0].name);
-      setOriginalCode('');
-      setShowOriginal(false);
+      // Auto-populate original code window as well
+      setOriginalCode(newFiles[0].content);
+      setShowOriginal(true);
       setShowDiff(false);
     }
     
@@ -514,6 +515,27 @@ document.addEventListener('DOMContentLoaded', function() {
                     data-testid="button-search"
                   >
                     <i className="fas fa-search text-xs text-muted-foreground"></i>
+                  </button>
+                </div>
+                
+                {/* Search control buttons */}
+                <div className="flex gap-2 mb-3">
+                  <button 
+                    className="flex-1 px-3 py-1 text-xs bg-primary hover:bg-primary/80 text-primary-foreground rounded transition-colors"
+                    onClick={performSearch}
+                    data-testid="button-search-main"
+                  >
+                    🔍 Search
+                  </button>
+                  <button 
+                    className="flex-1 px-3 py-1 text-xs bg-muted hover:bg-muted/80 rounded transition-colors"
+                    onClick={() => {
+                      setSearchTerm('');
+                      setSearchResults([]);
+                    }}
+                    data-testid="button-clear-search"
+                  >
+                    🗑️ Clear
                   </button>
                 </div>
 

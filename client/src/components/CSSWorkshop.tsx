@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import type { ProjectFile, WorkshopMessage } from '@/types/workshop';
-import { parseCSS, CodeManipulator } from '@/lib/workshopUtils';
+import { parseCSS, CodeManipulator, parseCSSFromFiles } from '@/lib/workshopUtils';
 
 interface CSSWorkshopProps {
   files: ProjectFile[];
@@ -15,45 +15,12 @@ export default function CSSWorkshop({ files, onClose, sendMessage }: CSSWorkshop
   const [newCSSRule, setNewCSSRule] = useState<string>('');
   const [isCreatingNew, setIsCreatingNew] = useState<boolean>(false);
 
+  // Extract and parse CSS rules from files with line numbers
   const cssRules = useMemo(() => {
-    const allRules: Array<{
-      selector: string;
-      properties: Record<string, string>;
-      startLine: number;
-      endLine: number;
-      rawContent: string;
-      fileId: string;
-      fileName: string;
-    }> = [];
-
-    files.forEach(file => {
-      if (file.type === 'css') {
-        const rules = parseCSS(file.content);
-        rules.forEach(rule => {
-          allRules.push({
-            ...rule,
-            fileId: file.id,
-            fileName: file.name
-          });
-        });
-      } else if (file.type === 'html') {
-        // Extract CSS from style tags
-        const styleRegex = /<style[^>]*>([\s\S]*?)<\/style>/gi;
-        let match;
-        while ((match = styleRegex.exec(file.content)) !== null) {
-          const rules = parseCSS(match[1]);
-          rules.forEach(rule => {
-            allRules.push({
-              ...rule,
-              fileId: file.id,
-              fileName: `${file.name} (inline)`
-            });
-          });
-        }
-      }
-    });
-
-    return allRules;
+    return parseCSSFromFiles(files).map(rule => ({
+      ...rule,
+      fileId: files.find(f => f.name === rule.fileName)?.id || 'unknown'
+    }));
   }, [files]);
 
   const handleRuleSelect = (rule: any) => {
@@ -329,12 +296,17 @@ export default function CSSWorkshop({ files, onClose, sendMessage }: CSSWorkshop
                     onClick={() => handleRuleSelect(rule)}
                     data-testid={`css-rule-${index}`}
                   >
-                    <div className="font-mono text-sm text-primary">{rule.selector}</div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="font-mono text-sm text-primary">{rule.selector}</div>
+                      <div className="bg-accent/20 text-accent px-2 py-0.5 rounded text-xs font-mono">
+                        Line {rule.lineNumber}{ rule.endLineNumber !== rule.lineNumber ? `-${rule.endLineNumber}` : '' }
+                      </div>
+                    </div>
                     <div className="text-xs text-muted-foreground">
                       {Object.keys(rule.properties).join(', ')}
                     </div>
                     <div className="text-xs text-muted-foreground mt-1">
-                      {rule.fileName}
+                      {rule.source}
                     </div>
                   </div>
                 ))
