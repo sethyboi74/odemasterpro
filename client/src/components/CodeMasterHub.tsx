@@ -506,7 +506,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     onChange={(e) => setSearchTerm(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && performSearch()}
                     placeholder="Search code (multi-line supported)..."
-                    className="w-full px-3 py-2 text-xs bg-background border border-border rounded-md font-mono"
+                    className="w-full px-3 py-2 pr-16 text-xs bg-background border border-border rounded-md font-mono"
                     data-testid="input-search"
                   />
                   <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex gap-1">
@@ -516,11 +516,11 @@ document.addEventListener('DOMContentLoaded', function() {
                           setSearchTerm('');
                           setSearchResults([]);
                         }}
-                        className="p-1 hover:bg-muted/50 rounded text-muted-foreground hover:text-foreground"
+                        className="p-1 hover:bg-gray-200 rounded text-gray-600 hover:text-gray-800 text-sm"
                         data-testid="button-clear-search-x"
                         title="Clear search"
                       >
-                        ❌
+                        ✕
                       </button>
                     )}
                     <button

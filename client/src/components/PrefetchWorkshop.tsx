@@ -403,7 +403,7 @@ export default function PrefetchWorkshop({ files, onClose, sendMessage }: Prefet
                             data-testid={`button-delete-existing-${index}`}
                             title="Delete from code"
                           >
-                            <i className="fas fa-trash"></i>
+                            <span>🗑️</span>
                           </button>
                         )}
                       </div>
