@@ -393,7 +393,7 @@ export default function PrefetchWorkshop({ files, onClose, sendMessage }: Prefet
                             ✕
                           </button>
                         )}
-                        {hasExisting && (
+                        {hasExisting ? (
                           <button 
                             onClick={(e) => {
                               e.stopPropagation();
@@ -403,9 +403,9 @@ export default function PrefetchWorkshop({ files, onClose, sendMessage }: Prefet
                             data-testid={`button-delete-existing-${index}`}
                             title="Delete from code"
                           >
-                            <span>🗑️</span>
+                            <i className="fas fa-trash"></i>
                           </button>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                   );

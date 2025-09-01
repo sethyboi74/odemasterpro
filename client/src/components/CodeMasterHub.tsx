@@ -510,13 +510,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     data-testid="input-search"
                   />
                   <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex gap-1">
-                    {searchTerm && (
+                    {searchTerm.trim().length > 0 && (
                       <button
                         onClick={() => {
                           setSearchTerm('');
                           setSearchResults([]);
                         }}
-                        className="p-1 hover:bg-gray-200 rounded text-gray-600 hover:text-gray-800 text-sm"
+                        className="px-2 py-1 hover:bg-red-200 rounded text-red-700 bg-red-100 border border-red-300 text-lg font-bold shadow-sm"
                         data-testid="button-clear-search-x"
                         title="Clear search"
                       >
