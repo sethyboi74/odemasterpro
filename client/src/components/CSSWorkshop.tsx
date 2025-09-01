@@ -376,11 +376,11 @@ export default function CSSWorkshop({ files, onClose, sendMessage }: CSSWorkshop
                           e.stopPropagation();
                           handleDeleteRule(rule);
                         }}
-                        className="text-sm text-red-500 hover:text-red-700 ml-auto font-bold"
+                        className="px-2 py-1 text-sm text-red-600 hover:text-red-800 bg-red-100 hover:bg-red-200 border border-red-300 rounded ml-auto font-bold shadow-sm"
                         data-testid={`button-delete-css-rule-${index}`}
                         title="Delete CSS rule from code"
                       >
-<i className="fas fa-trash"></i>
+                        🗑️
                       </button>
                     </div>
                     <div className="text-xs text-muted-foreground">
