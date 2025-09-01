@@ -14,6 +14,8 @@ export default function CSSWorkshop({ files, onClose, sendMessage }: CSSWorkshop
   const [previewUrl, setPreviewUrl] = useState<string>('');
   const [newCSSRule, setNewCSSRule] = useState<string>('');
   const [isCreatingNew, setIsCreatingNew] = useState<boolean>(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [ruleToDelete, setRuleToDelete] = useState<any>(null);
 
   // Extract and parse CSS rules from files with line numbers
   const cssRules = useMemo(() => {
@@ -161,6 +163,70 @@ export default function CSSWorkshop({ files, onClose, sendMessage }: CSSWorkshop
     }
   };
 
+  const handleDeleteRule = (rule: any) => {
+    setRuleToDelete(rule);
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDelete = () => {
+    if (!ruleToDelete) return;
+    
+    // Find the file containing this rule
+    const targetFile = files.find(f => f.id === ruleToDelete.fileId);
+    
+    if (targetFile) {
+      try {
+        const manipulator = new CodeManipulator(targetFile.content);
+        let modifiedContent = targetFile.content;
+        
+        if (targetFile.type === 'css') {
+          // For CSS files, remove the entire rule
+          const ruleLocation = manipulator.findCSSRule(ruleToDelete.selector);
+          if (ruleLocation) {
+            // Replace the rule with empty content to effectively delete it
+            modifiedContent = manipulator.replaceAtLocation(ruleLocation, '');
+          }
+        } else if (targetFile.type === 'html') {
+          // For HTML files, remove the style tag or rule within <style>
+          const styleTagRegex = new RegExp(`<style[^>]*>[\\s\\S]*?${ruleToDelete.selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[\\s\\S]*?</style>`, 'gi');
+          modifiedContent = targetFile.content.replace(styleTagRegex, '');
+        }
+        
+        sendMessage(null, {
+          type: 'WORKSHOP_APPLY_PATCH',
+          workshopId: 'css-workshop',
+          data: {
+            code: modifiedContent,
+            summary: `Removed CSS rule: ${ruleToDelete.selector}`,
+            changes: [{
+              type: 'delete',
+              description: `Deleted CSS rule ${ruleToDelete.selector}`,
+              location: `${targetFile.name}:${ruleToDelete.line || 'unknown'}`
+            }]
+          }
+        });
+        
+        // Clear selection if this rule was selected
+        if (selectedRule === ruleToDelete.selector) {
+          setSelectedRule('');
+          setEditedCSS('');
+        }
+        
+      } catch (error) {
+        console.error('Failed to delete CSS rule:', error);
+        alert('Failed to delete CSS rule from code');
+      }
+    }
+    
+    setShowDeleteDialog(false);
+    setRuleToDelete(null);
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteDialog(false);
+    setRuleToDelete(null);
+  };
+
   const handleApplyNewCSS = () => {
     if (!newCSSRule.trim()) return;
     
@@ -305,6 +371,17 @@ export default function CSSWorkshop({ files, onClose, sendMessage }: CSSWorkshop
                       <div className="bg-accent/20 text-accent px-2 py-0.5 rounded text-xs font-mono">
                         Line {rule.lineNumber}{ rule.endLineNumber !== rule.lineNumber ? `-${rule.endLineNumber}` : '' }
                       </div>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteRule(rule);
+                        }}
+                        className="text-sm text-red-500 hover:text-red-700 ml-auto font-bold"
+                        data-testid={`button-delete-css-rule-${index}`}
+                        title="Delete CSS rule from code"
+                      >
+<i className="fas fa-trash"></i>
+                      </button>
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {Object.keys(rule.properties).join(', ')}
@@ -393,6 +470,38 @@ export default function CSSWorkshop({ files, onClose, sendMessage }: CSSWorkshop
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card border border-border rounded-lg shadow-xl p-6 max-w-md mx-4">
+            <h3 className="text-lg font-semibold mb-4">⚠️ Delete CSS Rule</h3>
+            <p className="text-muted-foreground mb-6">
+              Are you sure you want to remove this CSS rule from your code?
+              <br />
+              <span className="font-mono text-sm bg-muted p-1 rounded mt-2 block break-all">
+                {ruleToDelete?.selector}
+              </span>
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={cancelDelete}
+                className="px-4 py-2 text-sm bg-muted hover:bg-muted/80 rounded transition-colors"
+                data-testid="button-cancel-delete-css"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 text-sm bg-red-600 hover:bg-red-700 text-white rounded transition-colors"
+                data-testid="button-confirm-delete-css"
+              >
+                Yes, Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

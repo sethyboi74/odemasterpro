@@ -17,6 +17,8 @@ export default function PrefetchWorkshop({ files, onClose, sendMessage }: Prefet
     type: 'font' | 'api' | 'cdn' | 'image' | 'script';
     recommendation: 'preconnect' | 'dns-prefetch' | 'prefetch';
   }>>([]);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [resourceToDelete, setResourceToDelete] = useState<string | null>(null);
 
   // Refresh when files change
   useEffect(() => {
@@ -77,15 +79,15 @@ export default function PrefetchWorkshop({ files, onClose, sendMessage }: Prefet
       const crossorigin = resource.type === 'font' && resource.url.includes('gstatic') ? ' crossorigin' : '';
       return `<link rel="${resource.recommendation}" href="${resource.url}"${crossorigin}>`;
     }).join('\n');
-  }, [selectedResources, detectedResources]);
+  }, [selectedResources, allResources]);
 
   const performanceImpact = useMemo(() => {
     const dnsCount = selectedResources.filter(url => 
-      detectedResources.find(r => r.url === url)?.recommendation === 'dns-prefetch'
+      allResources.find(r => r.url === url)?.recommendation === 'dns-prefetch'
     ).length;
     
     const fontCount = selectedResources.filter(url => 
-      detectedResources.find(r => r.url === url)?.type === 'font'
+      allResources.find(r => r.url === url)?.type === 'font'
     ).length;
 
     return {
@@ -93,7 +95,7 @@ export default function PrefetchWorkshop({ files, onClose, sendMessage }: Prefet
       fontTime: fontCount * 120, // avg 120ms per font load saved
       overallGain: Math.min(25, (dnsCount + fontCount) * 3) // max 25% gain
     };
-  }, [selectedResources, detectedResources]);
+  }, [selectedResources, allResources]);
 
   const toggleResource = (url: string) => {
     setSelectedResources(prev => 
@@ -183,6 +185,52 @@ export default function PrefetchWorkshop({ files, onClose, sendMessage }: Prefet
       });
       onClose();
     }
+  };
+
+  const handleDeleteResource = (url: string) => {
+    setResourceToDelete(url);
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDelete = () => {
+    if (!resourceToDelete) return;
+    
+    // Find the resource in all files that contains this URL in link tags
+    const htmlFile = files.find(f => f.type === 'html');
+    
+    if (htmlFile) {
+      try {
+        const manipulator = new CodeManipulator(htmlFile.content);
+        
+        // Find and remove all link tags that reference this URL
+        const linkTagRegex = new RegExp(`<link[^>]*href=["\']${resourceToDelete.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}["\'][^>]*>`, 'gi');
+        const modifiedContent = htmlFile.content.replace(linkTagRegex, '');
+        
+        sendMessage(null, {
+          type: 'WORKSHOP_APPLY_PATCH',
+          workshopId: 'prefetch-workshop',
+          data: {
+            code: modifiedContent,
+            summary: `Removed prefetch/preconnect tag for ${resourceToDelete}`
+          }
+        });
+        
+        // Remove from selections if it was selected
+        setSelectedResources(prev => prev.filter(url => url !== resourceToDelete));
+        
+      } catch (error) {
+        console.error('Failed to delete resource:', error);
+        alert('Failed to delete resource from code');
+      }
+    }
+    
+    setShowDeleteDialog(false);
+    setResourceToDelete(null);
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteDialog(false);
+    setResourceToDelete(null);
   };
 
   const getResourceIcon = (type: string) => {
@@ -339,10 +387,23 @@ export default function PrefetchWorkshop({ files, onClose, sendMessage }: Prefet
                               setManualResources(prev => prev.filter(r => r.url !== resource.url));
                               setSelectedResources(prev => prev.filter(url => url !== resource.url));
                             }}
-                            className="text-xs text-red-600 hover:text-red-800 ml-1"
+                            className="text-sm text-red-500 hover:text-red-700 ml-1 font-bold"
                             data-testid={`button-remove-manual-${index}`}
                           >
                             ✕
+                          </button>
+                        )}
+                        {hasExisting && (
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteResource(resource.url);
+                            }}
+                            className="text-sm text-red-500 hover:text-red-700 ml-1 font-bold"
+                            data-testid={`button-delete-existing-${index}`}
+                            title="Delete from code"
+                          >
+                            <i className="fas fa-trash"></i>
                           </button>
                         )}
                       </div>
@@ -423,6 +484,38 @@ export default function PrefetchWorkshop({ files, onClose, sendMessage }: Prefet
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card border border-border rounded-lg shadow-xl p-6 max-w-md mx-4">
+            <h3 className="text-lg font-semibold mb-4">⚠️ Delete Prefetch Resource</h3>
+            <p className="text-muted-foreground mb-6">
+              Are you sure you want to remove this prefetch/preconnect tag from your code?
+              <br />
+              <span className="font-mono text-sm bg-muted p-1 rounded mt-2 block break-all">
+                {resourceToDelete}
+              </span>
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={cancelDelete}
+                className="px-4 py-2 text-sm bg-muted hover:bg-muted/80 rounded transition-colors"
+                data-testid="button-cancel-delete"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 text-sm bg-red-600 hover:bg-red-700 text-white rounded transition-colors"
+                data-testid="button-confirm-delete"
+              >
+                Yes, Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
