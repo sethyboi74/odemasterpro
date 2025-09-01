@@ -516,7 +516,7 @@ document.addEventListener('DOMContentLoaded', function() {
                           setSearchTerm('');
                           setSearchResults([]);
                         }}
-                        className="p-1 hover:bg-muted/50 rounded text-red-500 hover:text-red-700"
+                        className="p-1 hover:bg-red-100 rounded text-red-600 hover:text-red-800 bg-red-50 border border-red-200 font-bold"
                         data-testid="button-clear-search-x"
                         title="Clear search"
                       >
