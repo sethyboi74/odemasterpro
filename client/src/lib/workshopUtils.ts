@@ -76,47 +76,6 @@ export function generateBlobUrl(content: string): string {
   return URL.createObjectURL(blob);
 }
 
-export function parseCSS(content: string): Array<{
-  selector: string;
-  properties: Record<string, string>;
-  startLine: number;
-  endLine: number;
-}> {
-  const rules: Array<{
-    selector: string;
-    properties: Record<string, string>;
-    startLine: number;
-    endLine: number;
-  }> = [];
-  
-  const lines = content.split('\n');
-  let currentRule: any = null;
-  
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    
-    if (line.includes('{') && !currentRule) {
-      const selector = line.split('{')[0].trim();
-      currentRule = {
-        selector,
-        properties: {},
-        startLine: i + 1,
-        endLine: i + 1
-      };
-    } else if (line.includes('}') && currentRule) {
-      currentRule.endLine = i + 1;
-      rules.push(currentRule);
-      currentRule = null;
-    } else if (currentRule && line.includes(':')) {
-      const [prop, value] = line.split(':').map(s => s.trim());
-      if (prop && value) {
-        currentRule.properties[prop] = value.replace(';', '');
-      }
-    }
-  }
-  
-  return rules;
-}
 
 export function analyzeExternalResources(content: string): Array<{
   url: string;
@@ -158,4 +117,273 @@ export function analyzeExternalResources(content: string): Array<{
   });
   
   return resources;
+}
+
+// Enhanced code manipulation utilities
+export interface CodeLocation {
+  startLine: number;
+  endLine: number;
+  startCol: number;
+  endCol: number;
+  content: string;
+}
+
+export interface CodeChange {
+  type: 'insert' | 'replace' | 'delete' | 'append';
+  location: CodeLocation;
+  newContent: string;
+  description: string;
+}
+
+export class CodeManipulator {
+  private lines: string[];
+  private original: string;
+
+  constructor(code: string) {
+    this.original = code;
+    this.lines = code.split('\n');
+  }
+
+  // Find HTML head section for inserting prefetch tags
+  findHtmlHead(): CodeLocation | null {
+    const headStartRegex = /<head[^>]*>/i;
+    const headEndRegex = /<\/head>/i;
+    
+    let headStart: CodeLocation | null = null;
+    let headEnd: CodeLocation | null = null;
+    
+    for (let i = 0; i < this.lines.length; i++) {
+      const line = this.lines[i];
+      const startMatch = line.match(headStartRegex);
+      const endMatch = line.match(headEndRegex);
+      
+      if (startMatch && !headStart) {
+        const startCol = line.indexOf(startMatch[0]);
+        headStart = {
+          startLine: i,
+          endLine: i,
+          startCol: startCol + startMatch[0].length,
+          endCol: startCol + startMatch[0].length,
+          content: startMatch[0]
+        };
+      }
+      
+      if (endMatch && headStart && !headEnd) {
+        const endCol = line.indexOf(endMatch[0]);
+        headEnd = {
+          startLine: i,
+          endLine: i,
+          startCol: endCol,
+          endCol: endCol,
+          content: endMatch[0]
+        };
+        break;
+      }
+    }
+    
+    // Return insertion point before closing </head>
+    if (headEnd) {
+      return {
+        startLine: headEnd.startLine,
+        endLine: headEnd.startLine,
+        startCol: 0,
+        endCol: 0,
+        content: ''
+      };
+    }
+    
+    return null;
+  }
+
+  // Find CSS rule by selector
+  findCSSRule(selector: string): CodeLocation | null {
+    const selectorRegex = new RegExp(`^\\s*${selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{`, 'i');
+    let ruleStart: number | null = null;
+    let braceCount = 0;
+    
+    for (let i = 0; i < this.lines.length; i++) {
+      const line = this.lines[i];
+      
+      if (selectorRegex.test(line) && ruleStart === null) {
+        ruleStart = i;
+        braceCount = (line.match(/\{/g) || []).length;
+        braceCount -= (line.match(/\}/g) || []).length;
+        
+        if (braceCount === 0) {
+          // Single line rule
+          return {
+            startLine: i,
+            endLine: i,
+            startCol: 0,
+            endCol: line.length,
+            content: line
+          };
+        }
+      } else if (ruleStart !== null) {
+        braceCount += (line.match(/\{/g) || []).length;
+        braceCount -= (line.match(/\}/g) || []).length;
+        
+        if (braceCount === 0) {
+          // Multi-line rule
+          const content = this.lines.slice(ruleStart, i + 1).join('\n');
+          return {
+            startLine: ruleStart,
+            endLine: i,
+            startCol: 0,
+            endCol: line.length,
+            content
+          };
+        }
+      }
+    }
+    
+    return null;
+  }
+
+  // Smart insertion that preserves formatting
+  insertAtLocation(location: CodeLocation, content: string, indent: boolean = true): string {
+    const newLines = [...this.lines];
+    const insertContent = indent ? this.getIndentedContent(content, location.startLine) : content;
+    
+    if (location.startLine === location.endLine) {
+      // Single line insertion
+      const line = newLines[location.startLine];
+      newLines[location.startLine] = 
+        line.slice(0, location.startCol) + 
+        insertContent + 
+        line.slice(location.endCol);
+    } else {
+      // Multi-line insertion
+      const contentLines = insertContent.split('\n');
+      newLines.splice(location.startLine, location.endLine - location.startLine + 1, ...contentLines);
+    }
+    
+    return newLines.join('\n');
+  }
+
+  // Replace content while preserving structure
+  replaceAtLocation(location: CodeLocation, newContent: string): string {
+    const newLines = [...this.lines];
+    const indentedContent = this.getIndentedContent(newContent, location.startLine);
+    const contentLines = indentedContent.split('\n');
+    
+    newLines.splice(location.startLine, location.endLine - location.startLine + 1, ...contentLines);
+    
+    return newLines.join('\n');
+  }
+
+  // Delete content at location
+  deleteAtLocation(location: CodeLocation): string {
+    const newLines = [...this.lines];
+    
+    if (location.startLine === location.endLine) {
+      // Single line deletion
+      const line = newLines[location.startLine];
+      newLines[location.startLine] = 
+        line.slice(0, location.startCol) + 
+        line.slice(location.endCol);
+    } else {
+      // Multi-line deletion
+      const firstLine = newLines[location.startLine].slice(0, location.startCol);
+      const lastLine = newLines[location.endLine].slice(location.endCol);
+      newLines.splice(location.startLine, location.endLine - location.startLine + 1, firstLine + lastLine);
+    }
+    
+    return newLines.join('\n');
+  }
+
+  // Get appropriate indentation based on context
+  private getIndentedContent(content: string, lineNumber: number): string {
+    const contextLine = this.lines[lineNumber] || '';
+    const indent = contextLine.match(/^(\s*)/)?.[1] || '  ';
+    
+    return content.split('\n')
+      .map((line, index) => index === 0 ? line : indent + line)
+      .join('\n');
+  }
+
+  // Apply multiple changes in order
+  applyChanges(changes: CodeChange[]): string {
+    let result = this.original;
+    
+    // Sort changes by line number (reverse order for proper indexing)
+    const sortedChanges = changes.sort((a, b) => b.location.startLine - a.location.startLine);
+    
+    for (const change of sortedChanges) {
+      const manipulator = new CodeManipulator(result);
+      
+      switch (change.type) {
+        case 'insert':
+          result = manipulator.insertAtLocation(change.location, change.newContent);
+          break;
+        case 'replace':
+          result = manipulator.replaceAtLocation(change.location, change.newContent);
+          break;
+        case 'delete':
+          result = manipulator.deleteAtLocation(change.location);
+          break;
+        case 'append':
+          // Find end of file or specific section
+          const appendLocation: CodeLocation = {
+            ...change.location,
+            startCol: change.location.endCol,
+          };
+          result = manipulator.insertAtLocation(appendLocation, change.newContent);
+          break;
+      }
+    }
+    
+    return result;
+  }
+}
+
+// Enhanced CSS parsing with better structure preservation
+export function parseCSS(content: string): Array<{
+  selector: string;
+  properties: Record<string, string>;
+  startLine: number;
+  endLine: number;
+  rawContent: string;
+}> {
+  const manipulator = new CodeManipulator(content);
+  const rules: Array<{
+    selector: string;
+    properties: Record<string, string>;
+    startLine: number;
+    endLine: number;
+    rawContent: string;
+  }> = [];
+  
+  // More robust CSS parsing
+  const cssRuleRegex = /([^{]+)\{([^}]+)\}/g;
+  let match;
+  
+  while ((match = cssRuleRegex.exec(content)) !== null) {
+    const selector = match[1].trim();
+    const propertiesStr = match[2].trim();
+    const properties: Record<string, string> = {};
+    
+    // Parse properties
+    propertiesStr.split(';').forEach(prop => {
+      const [key, value] = prop.split(':').map(s => s.trim());
+      if (key && value) {
+        properties[key] = value;
+      }
+    });
+    
+    // Find line numbers
+    const beforeMatch = content.substring(0, match.index);
+    const startLine = beforeMatch.split('\n').length - 1;
+    const endLine = startLine + match[0].split('\n').length - 1;
+    
+    rules.push({
+      selector,
+      properties,
+      startLine,
+      endLine,
+      rawContent: match[0]
+    });
+  }
+  
+  return rules;
 }

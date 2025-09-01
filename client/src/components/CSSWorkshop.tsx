@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import type { ProjectFile, WorkshopMessage } from '@/types/workshop';
-import { parseCSS } from '@/lib/workshopUtils';
+import { parseCSS, CodeManipulator } from '@/lib/workshopUtils';
 
 interface CSSWorkshopProps {
   files: ProjectFile[];
@@ -19,6 +19,7 @@ export default function CSSWorkshop({ files, onClose, sendMessage }: CSSWorkshop
       properties: Record<string, string>;
       startLine: number;
       endLine: number;
+      rawContent: string;
       fileId: string;
       fileName: string;
     }> = [];
@@ -80,15 +81,68 @@ export default function CSSWorkshop({ files, onClose, sendMessage }: CSSWorkshop
   }, [editedCSS]);
 
   const handleApplyChanges = () => {
-    sendMessage(null, {
-      type: 'WORKSHOP_APPLY_PATCH',
-      workshopId: 'css-workshop',
-      data: {
-        code: editedCSS,
-        summary: `CSS rule ${selectedRule} updated`
+    if (!selectedRule || !editedCSS) return;
+    
+    // Find the original file to modify
+    const targetRule = cssRules.find(rule => rule.selector === selectedRule);
+    if (!targetRule) return;
+    
+    const targetFile = files.find(f => f.id === targetRule.fileId);
+    if (!targetFile) return;
+    
+    try {
+      const manipulator = new CodeManipulator(targetFile.content);
+      let modifiedContent = targetFile.content;
+      
+      if (targetFile.type === 'css') {
+        // For CSS files, replace the entire rule
+        const ruleLocation = manipulator.findCSSRule(selectedRule);
+        if (ruleLocation) {
+          modifiedContent = manipulator.replaceAtLocation(ruleLocation, editedCSS);
+        }
+      } else if (targetFile.type === 'html') {
+        // For HTML with inline styles, need to find and replace within <style> tags
+        const styleRegex = /<style[^>]*>([\s\S]*?)<\/style>/gi;
+        modifiedContent = targetFile.content.replace(styleRegex, (match, cssContent) => {
+          const cssManipulator = new CodeManipulator(cssContent);
+          const ruleLocation = cssManipulator.findCSSRule(selectedRule);
+          if (ruleLocation) {
+            const updatedCSS = cssManipulator.replaceAtLocation(ruleLocation, editedCSS);
+            return match.replace(cssContent, updatedCSS);
+          }
+          return match;
+        });
       }
-    });
-    onClose();
+      
+      sendMessage(null, {
+        type: 'WORKSHOP_APPLY_PATCH',
+        workshopId: 'css-workshop',
+        data: {
+          code: modifiedContent,
+          summary: `CSS rule "${selectedRule}" updated with preserved structure`,
+          changes: [{
+            type: 'replace',
+            description: `Updated ${selectedRule} in ${targetFile.name}`,
+            location: `Line ${targetRule.startLine}-${targetRule.endLine}`
+          }]
+        }
+      });
+      
+      onClose();
+    } catch (error) {
+      console.error('Failed to apply CSS changes:', error);
+      
+      // Fallback: Send original code as backup
+      sendMessage(null, {
+        type: 'WORKSHOP_APPLY_PATCH',
+        workshopId: 'css-workshop',
+        data: {
+          code: editedCSS,
+          summary: `CSS rule "${selectedRule}" updated (fallback mode)`
+        }
+      });
+      onClose();
+    }
   };
 
   return (

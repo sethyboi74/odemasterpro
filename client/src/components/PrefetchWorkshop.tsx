@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import type { ProjectFile, WorkshopMessage } from '@/types/workshop';
-import { analyzeExternalResources } from '@/lib/workshopUtils';
+import { analyzeExternalResources, CodeManipulator } from '@/lib/workshopUtils';
 
 interface PrefetchWorkshopProps {
   files: ProjectFile[];
@@ -51,13 +51,81 @@ export default function PrefetchWorkshop({ files, onClose, sendMessage }: Prefet
   };
 
   const handleApplyAll = () => {
-    if (generatedTags) {
+    if (!generatedTags || selectedResources.length === 0) return;
+    
+    // Find the main HTML file to modify
+    const htmlFile = files.find(f => f.type === 'html' && f.content.includes('<head'));
+    
+    if (!htmlFile) {
+      // Fallback: Send tags without structure preservation
       sendMessage(null, {
         type: 'WORKSHOP_APPLY_PATCH',
         workshopId: 'prefetch-workshop',
         data: {
           code: generatedTags,
-          summary: `Added ${selectedResources.length} prefetch optimizations`
+          summary: `Added ${selectedResources.length} prefetch optimizations (manual insertion required)`
+        }
+      });
+      onClose();
+      return;
+    }
+    
+    try {
+      const manipulator = new CodeManipulator(htmlFile.content);
+      const headLocation = manipulator.findHtmlHead();
+      
+      if (headLocation) {
+        // Smart insertion: Add prefetch tags before closing </head> with proper indentation
+        const prefetchComment = `    <!-- Prefetch optimizations added by Prefetch Workshop -->\n`;
+        const indentedTags = generatedTags.split('\n')
+          .map(tag => tag.trim() ? `    ${tag.trim()}` : tag)
+          .join('\n');
+        const insertContent = `\n${prefetchComment}${indentedTags}\n`;
+        
+        const modifiedContent = manipulator.insertAtLocation(headLocation, insertContent, false);
+        
+        sendMessage(null, {
+          type: 'WORKSHOP_APPLY_PATCH',
+          workshopId: 'prefetch-workshop',
+          data: {
+            code: modifiedContent,
+            summary: `Smart-inserted ${selectedResources.length} prefetch optimizations into <head> section`,
+            changes: [{
+              type: 'insert',
+              description: `Added prefetch tags to ${htmlFile.name}`,
+              location: `Head section (line ${headLocation.startLine})`
+            }]
+          }
+        });
+        
+      } else {
+        // If can't find head, try to insert after <head> tag
+        const headInsertRegex = /(<head[^>]*>)/i;
+        const modifiedContent = htmlFile.content.replace(headInsertRegex, (match) => {
+          return match + `\n    <!-- Prefetch optimizations -->\n${generatedTags.split('\n').map(tag => `    ${tag}`).join('\n')}\n`;
+        });
+        
+        sendMessage(null, {
+          type: 'WORKSHOP_APPLY_PATCH',
+          workshopId: 'prefetch-workshop',
+          data: {
+            code: modifiedContent,
+            summary: `Added ${selectedResources.length} prefetch optimizations after <head> tag`
+          }
+        });
+      }
+      
+      onClose();
+    } catch (error) {
+      console.error('Failed to apply prefetch changes:', error);
+      
+      // Fallback: Send tags for manual insertion
+      sendMessage(null, {
+        type: 'WORKSHOP_APPLY_PATCH',
+        workshopId: 'prefetch-workshop',
+        data: {
+          code: generatedTags,
+          summary: `Generated ${selectedResources.length} prefetch optimizations (fallback mode - manual insertion required)`
         }
       });
       onClose();
