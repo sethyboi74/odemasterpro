@@ -516,11 +516,11 @@ document.addEventListener('DOMContentLoaded', function() {
                           setSearchTerm('');
                           setSearchResults([]);
                         }}
-                        className="p-1 hover:bg-muted/50 rounded"
+                        className="p-1 hover:bg-muted/50 rounded text-red-500 hover:text-red-700"
                         data-testid="button-clear-search-x"
                         title="Clear search"
                       >
-                        <i className="fas fa-times text-xs text-muted-foreground"></i>
+                        ✕
                       </button>
                     )}
                     <button
@@ -561,7 +561,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     {searchResults.map((result, index) => (
                       <div 
                         key={index}
-                        className="flex items-center gap-2 p-2 border-b border-border last:border-b-0 hover:bg-muted/30 cursor-pointer text-xs"
+                        className="flex items-center gap-2 p-2 border-b border-border last:border-b-0 hover:bg-secondary cursor-pointer text-xs transition-colors"
                         onClick={() => focusOnLine(result.line)}
                         data-testid={`search-result-${index}`}
                       >

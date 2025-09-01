@@ -294,7 +294,7 @@ export default function CSSWorkshop({ files, onClose, sendMessage }: CSSWorkshop
                     key={`${rule.fileId}-${index}`}
                     className={`p-2 rounded cursor-pointer transition-colors ${
                       selectedRule === rule.selector
-                        ? 'bg-green-100 border-2 border-green-500 shadow-md'
+                        ? 'bg-secondary border-2 border-secondary shadow-md text-secondary-foreground'
                         : 'bg-muted/30 hover:bg-muted/50 border border-transparent'
                     }`}
                     onClick={() => handleRuleSelect(rule)}

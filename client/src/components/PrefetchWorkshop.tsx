@@ -252,11 +252,11 @@ export default function PrefetchWorkshop({ files, onClose, sendMessage }: Prefet
                   {manualUrl && (
                     <button
                       onClick={() => setManualUrl('')}
-                      className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 hover:bg-muted/50 rounded"
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 hover:bg-muted/50 rounded text-red-500 hover:text-red-700"
                       data-testid="button-clear-manual-url"
                       title="Clear URL"
                     >
-                      <i className="fas fa-times text-xs text-muted-foreground"></i>
+                      ✕
                     </button>
                   )}
                 </div>
@@ -300,7 +300,7 @@ export default function PrefetchWorkshop({ files, onClose, sendMessage }: Prefet
                       key={index}
                       className={`p-2 rounded cursor-pointer transition-colors ${
                         selectedResources.includes(resource.url) 
-                          ? 'bg-green-100 border-2 border-green-500 shadow-md' 
+                          ? 'bg-secondary border-2 border-secondary shadow-md text-secondary-foreground' 
                           : hasExisting 
                             ? 'bg-green-50 border border-green-200 hover:bg-green-100' 
                             : 'bg-muted/30 hover:bg-muted/50 border border-transparent'
