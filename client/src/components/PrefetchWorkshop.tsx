@@ -10,6 +10,13 @@ interface PrefetchWorkshopProps {
 
 export default function PrefetchWorkshop({ files, onClose, sendMessage }: PrefetchWorkshopProps) {
   const [selectedResources, setSelectedResources] = useState<string[]>([]);
+  const [manualUrl, setManualUrl] = useState('');
+  const [manualType, setManualType] = useState<'preconnect' | 'dns-prefetch' | 'prefetch'>('preconnect');
+  const [manualResources, setManualResources] = useState<Array<{
+    url: string;
+    type: 'font' | 'api' | 'cdn' | 'image' | 'script';
+    recommendation: 'preconnect' | 'dns-prefetch' | 'prefetch';
+  }>>([]);
 
   // Refresh when files change
   useEffect(() => {
@@ -22,9 +29,49 @@ export default function PrefetchWorkshop({ files, onClose, sendMessage }: Prefet
     return analyzeExternalResources(allContent);
   }, [files]);
 
+  // Add manual URL function
+  const addManualUrl = () => {
+    if (!manualUrl.trim() || !manualUrl.startsWith('http')) {
+      alert('Please enter a valid HTTP/HTTPS URL');
+      return;
+    }
+    
+    if (manualResources.some(r => r.url === manualUrl)) {
+      alert('This URL has already been added');
+      return;
+    }
+    
+    // Smart categorization for manual URLs
+    let type: 'font' | 'api' | 'cdn' | 'image' | 'script' = 'cdn';
+    if (manualUrl.includes('fonts.googleapis.com') || manualUrl.includes('fonts.gstatic.com') || /\.(woff|woff2|ttf|otf|eot)$/i.test(manualUrl)) {
+      type = 'font';
+    } else if (manualUrl.includes('api.') || manualUrl.includes('/api/')) {
+      type = 'api';
+    } else if (/\.(jpg|jpeg|png|webp|gif|svg|ico)$/i.test(manualUrl)) {
+      type = 'image';
+    } else if (/\.(js|css|json)$/i.test(manualUrl)) {
+      type = 'script';
+    }
+    
+    const newResource = {
+      url: manualUrl,
+      type,
+      recommendation: manualType
+    };
+    
+    setManualResources(prev => [...prev, newResource]);
+    setSelectedResources(prev => [...prev, manualUrl]);
+    setManualUrl('');
+  };
+
+  // Combine detected and manual resources
+  const allResources = useMemo(() => {
+    return [...detectedResources, ...manualResources];
+  }, [detectedResources, manualResources]);
+
   const generatedTags = useMemo(() => {
     return selectedResources.map(url => {
-      const resource = detectedResources.find(r => r.url === url);
+      const resource = allResources.find(r => r.url === url);
       if (!resource) return '';
 
       const crossorigin = resource.type === 'font' && resource.url.includes('gstatic') ? ' crossorigin' : '';
@@ -187,41 +234,107 @@ export default function PrefetchWorkshop({ files, onClose, sendMessage }: Prefet
       <div className="flex-1 grid grid-cols-12 gap-4 p-4 overflow-hidden">
         {/* Resource Analysis Panel */}
         <div className="col-span-4 space-y-4">
+          {/* Manual URL Creation Panel */}
           <div className="tool-panel p-3">
-            <h3 className="text-sm font-semibold mb-3">Detected Resources</h3>
+            <h3 className="text-sm font-semibold mb-3">Create New Prefetch Tag</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground block mb-1">URL</label>
+                <input 
+                  type="url"
+                  value={manualUrl}
+                  onChange={(e) => setManualUrl(e.target.value)}
+                  placeholder="https://fonts.googleapis.com/css2?family=Inter"
+                  className="w-full px-2 py-1 text-sm border border-border rounded"
+                  data-testid="input-manual-url"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground block mb-1">Type</label>
+                <select 
+                  value={manualType}
+                  onChange={(e) => setManualType(e.target.value as 'preconnect' | 'dns-prefetch' | 'prefetch')}
+                  className="w-full px-2 py-1 text-sm border border-border rounded"
+                  data-testid="select-manual-type"
+                >
+                  <option value="preconnect">preconnect</option>
+                  <option value="dns-prefetch">dns-prefetch</option>
+                  <option value="prefetch">prefetch</option>
+                </select>
+              </div>
+              <button 
+                onClick={addManualUrl}
+                className="w-full btn-secondary px-3 py-2 rounded text-sm"
+                data-testid="button-add-manual-url"
+              >
+                Add URL
+              </button>
+            </div>
+          </div>
+
+          <div className="tool-panel p-3">
+            <h3 className="text-sm font-semibold mb-3">All Resources</h3>
             <div className="space-y-2 max-h-48 overflow-y-auto">
-              {detectedResources.length === 0 ? (
+              {allResources.length === 0 ? (
                 <div className="text-center py-4 text-muted-foreground text-sm">
-                  No external resources found
+                  No resources found. Upload files or add URLs manually.
                 </div>
               ) : (
-                detectedResources.map((resource, index) => (
-                  <div 
-                    key={index}
-                    className={`p-2 rounded cursor-pointer transition-colors ${
-                      selectedResources.includes(resource.url) 
-                        ? 'bg-primary/20 border border-primary/30' 
-                        : 'bg-muted/30 hover:bg-muted/50'
-                    }`}
-                    onClick={() => toggleResource(resource.url)}
-                    data-testid={`resource-item-${index}`}
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      <i className={getResourceIcon(resource.type)}></i>
-                      <div className="text-sm font-mono text-primary truncate">
-                        {new URL(resource.url).hostname}
+                allResources.map((resource, index) => {
+                  const isManual = manualResources.includes(resource);
+                  const hasExisting = 'existing' in resource && resource.existing;
+                  return (
+                    <div 
+                      key={index}
+                      className={`p-2 rounded cursor-pointer transition-colors ${
+                        selectedResources.includes(resource.url) 
+                          ? 'bg-primary/20 border border-primary/30' 
+                          : 'bg-muted/30 hover:bg-muted/50'
+                      } ${hasExisting ? 'bg-green-50 border-green-200' : ''}`}
+                      onClick={() => toggleResource(resource.url)}
+                      data-testid={`resource-item-${index}`}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <i className={getResourceIcon(resource.type)}></i>
+                        <div className="text-sm font-mono text-primary truncate">
+                          {new URL(resource.url).hostname}
+                        </div>
+                        {hasExisting && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700">
+                            ✓ exists
+                          </span>
+                        )}
+                        {isManual && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
+                            ✋ manual
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-muted-foreground mb-1">
+                        {resource.type} resource - Recommend {resource.recommendation}
+                        {hasExisting && ` (has ${(resource as any).existing})`}
+                      </div>
+                      <div className="flex gap-1 items-center">
+                        <span className={`px-2 py-0.5 text-xs rounded ${getRecommendationColor(resource.recommendation)}`}>
+                          {resource.recommendation}
+                        </span>
+                        {isManual && (
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setManualResources(prev => prev.filter(r => r.url !== resource.url));
+                              setSelectedResources(prev => prev.filter(url => url !== resource.url));
+                            }}
+                            className="text-xs text-red-600 hover:text-red-800 ml-1"
+                            data-testid={`button-remove-manual-${index}`}
+                          >
+                            ✕
+                          </button>
+                        )}
                       </div>
                     </div>
-                    <div className="text-xs text-muted-foreground mb-1">
-                      {resource.type} resource - Recommend {resource.recommendation}
-                    </div>
-                    <div className="flex gap-1">
-                      <span className={`px-2 py-0.5 text-xs rounded ${getRecommendationColor(resource.recommendation)}`}>
-                        {resource.recommendation}
-                      </span>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
@@ -231,10 +344,10 @@ export default function PrefetchWorkshop({ files, onClose, sendMessage }: Prefet
             <div className="space-y-2">
               <button 
                 className="w-full btn-primary px-3 py-2 rounded text-sm"
-                onClick={() => setSelectedResources(detectedResources.map(r => r.url))}
+                onClick={() => setSelectedResources(allResources.map(r => r.url))}
                 data-testid="button-select-all-resources"
               >
-                Select All Suggestions
+                Select All Resources
               </button>
               <button 
                 className="w-full btn-secondary px-3 py-2 rounded text-sm"
