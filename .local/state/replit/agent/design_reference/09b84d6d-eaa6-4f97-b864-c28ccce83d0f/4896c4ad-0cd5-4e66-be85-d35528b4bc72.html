@@ -1,0 +1,910 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodeMaster Pro - Unified Code Analysis & Development Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                borderRadius: {
+                    lg: "var(--radius)",
+                    md: "calc(var(--radius) - 2px)",
+                    sm: "calc(var(--radius) - 4px)",
+                },
+                colors: {
+                    background: "var(--background)",
+                    foreground: "var(--foreground)",
+                    card: {
+                        DEFAULT: "var(--card)",
+                        foreground: "var(--card-foreground)",
+                    },
+                    popover: {
+                        DEFAULT: "var(--popover)",
+                        foreground: "var(--popover-foreground)",
+                    },
+                    primary: {
+                        DEFAULT: "var(--primary)",
+                        foreground: "var(--primary-foreground)",
+                    },
+                    secondary: {
+                        DEFAULT: "var(--secondary)",
+                        foreground: "var(--secondary-foreground)",
+                    },
+                    muted: {
+                        DEFAULT: "var(--muted)",
+                        foreground: "var(--muted-foreground)",
+                    },
+                    accent: {
+                        DEFAULT: "var(--accent)",
+                        foreground: "var(--accent-foreground)",
+                    },
+                    destructive: {
+                        DEFAULT: "var(--destructive)",
+                        foreground: "var(--destructive-foreground)",
+                    },
+                    border: "var(--border)",
+                    input: "var(--input)",
+                    ring: "var(--ring)",
+                },
+                fontFamily: {
+                    sans: ["var(--font-sans)"],
+                    mono: ["var(--font-mono)"],
+                }
+            },
+        }
+    };
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        :root {
+            --background: hsl(220 13% 4%);
+            --foreground: hsl(213 31% 91%);
+            --card: hsl(220 13% 9%);
+            --card-foreground: hsl(213 31% 91%);
+            --popover: hsl(220 13% 9%);
+            --popover-foreground: hsl(213 31% 91%);
+            --primary: hsl(212 92% 70%);
+            --primary-foreground: hsl(220 13% 4%);
+            --secondary: hsl(137 72% 32%);
+            --secondary-foreground: hsl(213 31% 91%);
+            --muted: hsl(220 13% 13%);
+            --muted-foreground: hsl(218 11% 65%);
+            --accent: hsl(276 55% 72%);
+            --accent-foreground: hsl(220 13% 4%);
+            --destructive: hsl(0 84% 60%);
+            --destructive-foreground: hsl(213 31% 91%);
+            --border: hsl(220 13% 18%);
+            --input: hsl(220 13% 13%);
+            --ring: hsl(212 92% 70%);
+            --radius: 12px;
+            --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+            --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background: var(--background);
+            color: var(--foreground);
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+
+        .gradient-bg {
+            background: linear-gradient(135deg, hsl(220 13% 4%) 0%, hsl(220 13% 7%) 100%);
+        }
+
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+        }
+
+        .code-window {
+            background: hsl(220 16% 5%);
+            border: 1px solid hsl(220 13% 15%);
+            font-family: var(--font-mono);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .syntax-highlight .keyword { color: hsl(305 81% 72%); }
+        .syntax-highlight .string { color: hsl(95 38% 62%); }
+        .syntax-highlight .comment { color: hsl(218 11% 45%); }
+        .syntax-highlight .tag { color: hsl(213 78% 76%); }
+        .syntax-highlight .attribute { color: hsl(41 99% 67%); }
+
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+        }
+
+        .tool-panel {
+            background: hsl(220 13% 8%);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: var(--primary-foreground);
+            border: none;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, var(--secondary), hsl(150 65% 45%));
+            color: var(--secondary-foreground);
+            border: none;
+        }
+
+        .status-indicator {
+            position: relative;
+        }
+
+        .status-indicator::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--secondary);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .diff-added { background: rgba(35, 134, 54, 0.2); border-left: 3px solid var(--secondary); }
+        .diff-removed { background: rgba(248, 81, 73, 0.2); border-left: 3px solid var(--destructive); }
+        .diff-modified { background: rgba(251, 191, 36, 0.2); border-left: 3px solid hsl(43 96% 56%); }
+
+        .message-bus {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 12px;
+            font-size: 12px;
+            font-family: var(--font-mono);
+            max-width: 300px;
+            z-index: 1001;
+        }
+
+        .drag-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(45deg, rgba(88, 166, 255, 0.1), rgba(188, 140, 255, 0.1));
+            border: 2px dashed var(--primary);
+            border-radius: var(--radius);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--primary);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .drag-overlay.active {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="gradient-bg">
+    <!-- @COMPONENT: Header [Navigation and status] -->
+    <header class="glass-effect border-b">
+        <div class="max-w-7xl mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center text-white font-bold text-lg">
+                            <i class="fas fa-code"></i>
+                        </div>
+                        <div>
+                            <h1 class="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                                CodeMaster Pro
+                            </h1>
+                            <p class="text-xs text-muted-foreground">Unified Development Hub</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <nav class="flex items-center gap-2">
+                    <button class="px-3 py-2 text-sm rounded-md bg-muted/50 hover:bg-muted transition-colors flex items-center gap-2">
+                        <i class="fas fa-palette"></i>
+                        CSS Workshop
+                    </button>
+                    <button class="px-3 py-2 text-sm rounded-md bg-muted/50 hover:bg-muted transition-colors flex items-center gap-2">
+                        <i class="fas fa-link"></i>
+                        Prefetch Tools
+                    </button>
+                    <button class="px-3 py-2 text-sm rounded-md bg-muted/50 hover:bg-muted transition-colors flex items-center gap-2">
+                        <i class="fas fa-align-left"></i>
+                        Spacing
+                    </button>
+                </nav>
+
+                <div class="flex items-center gap-3">
+                    <div class="status-indicator px-3 py-1 text-xs bg-muted rounded-full">
+                        <span data-bind="stats.filesLoaded">3 files</span>
+                    </div>
+                    <div class="px-3 py-1 text-xs bg-muted rounded-full">
+                        <span data-bind="stats.linesAnalyzed">247 lines</span>
+                    </div>
+                    <div class="px-3 py-1 text-xs bg-muted rounded-full">
+                        <span data-bind="stats.changesCount">12 changes</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+    <!-- @END_COMPONENT: Header -->
+
+    <!-- @COMPONENT: MainLayout [Primary workspace layout] -->
+    <main class="max-w-7xl mx-auto px-6 py-6">
+        <div class="grid grid-cols-12 gap-6 h-[calc(100vh-140px)]">
+            
+            <!-- @COMPONENT: ToolSidebar [Tool selection and file management] -->
+            <aside class="col-span-3 space-y-4">
+                <!-- File Upload Area -->
+                <div class="tool-panel p-4 relative">
+                    <div class="drag-overlay" id="dragOverlay">
+                        <div class="text-center">
+                            <i class="fas fa-cloud-upload-alt text-3xl mb-2"></i>
+                            <p>Drop files here to analyze</p>
+                        </div>
+                    </div>
+                    
+                    <h3 class="text-sm font-semibold mb-3 flex items-center gap-2">
+                        <i class="fas fa-folder-open text-primary"></i>
+                        Project Files
+                    </h3>
+                    
+                    <div class="border-2 border-dashed border-border rounded-lg p-6 text-center bg-muted/20 hover:bg-muted/30 transition-colors cursor-pointer">
+                        <i class="fas fa-upload text-2xl text-muted-foreground mb-2"></i>
+                        <p class="text-sm font-medium mb-1">Drop HTML/CSS/JS files</p>
+                        <p class="text-xs text-muted-foreground">Or click to browse</p>
+                        <input type="file" multiple accept=".html,.css,.js,.json" class="hidden" />
+                    </div>
+
+                    <!-- Loaded Files List -->
+                    <div class="mt-4 space-y-2 max-h-48 overflow-y-auto">
+                        <!-- A sophisticated product showcase website homepage design -->
+                        <div class="flex items-center justify-between p-2 bg-muted/30 rounded-md text-sm" data-mock="true">
+                            <div class="flex items-center gap-2">
+                                <i class="fab fa-html5 text-orange-500"></i>
+                                <span>index.html</span>
+                            </div>
+                            <button class="text-xs text-muted-foreground hover:text-foreground">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        
+                        <!-- Modern CSS framework styles -->
+                        <div class="flex items-center justify-between p-2 bg-muted/30 rounded-md text-sm" data-mock="true">
+                            <div class="flex items-center gap-2">
+                                <i class="fab fa-css3 text-blue-500"></i>
+                                <span>styles.css</span>
+                            </div>
+                            <button class="text-xs text-muted-foreground hover:text-foreground">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        
+                        <!-- Interactive JavaScript application logic -->
+                        <div class="flex items-center justify-between p-2 bg-muted/30 rounded-md text-sm" data-mock="true">
+                            <div class="flex items-center gap-2">
+                                <i class="fab fa-js text-yellow-500"></i>
+                                <span>app.js</span>
+                            </div>
+                            <button class="text-xs text-muted-foreground hover:text-foreground">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- External Tools -->
+                <div class="tool-panel p-4">
+                    <h3 class="text-sm font-semibold mb-3 flex items-center gap-2">
+                        <i class="fas fa-puzzle-piece text-accent"></i>
+                        External Tools
+                    </h3>
+                    
+                    <div class="space-y-2">
+                        <button class="w-full p-3 text-left bg-muted/20 hover:bg-muted/40 rounded-md transition-colors border border-transparent hover:border-primary/30">
+                            <div class="flex items-center gap-3">
+                                <i class="fas fa-upload text-primary"></i>
+                                <div>
+                                    <p class="text-sm font-medium">Upload Tool Module</p>
+                                    <p class="text-xs text-muted-foreground">Import .js/.json tools</p>
+                                </div>
+                            </div>
+                        </button>
+                        
+                        <!-- Loaded external spacing formatter tool -->
+                        <div class="p-3 bg-secondary/10 border border-secondary/30 rounded-md" data-mock="true">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <i class="fas fa-align-left text-secondary"></i>
+                                    <div>
+                                        <p class="text-sm font-medium">Spacing Formatter</p>
+                                        <p class="text-xs text-muted-foreground">v1.0.5 - Ready</p>
+                                    </div>
+                                </div>
+                                <button class="text-xs px-2 py-1 bg-secondary text-secondary-foreground rounded">
+                                    Run
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="tool-panel p-4">
+                    <h3 class="text-sm font-semibold mb-3 flex items-center gap-2">
+                        <i class="fas fa-bolt text-yellow-500"></i>
+                        Quick Actions
+                    </h3>
+                    
+                    <div class="space-y-2">
+                        <button class="w-full btn-primary px-3 py-2 rounded-md text-sm font-medium transition-transform hover:scale-105 flex items-center gap-2">
+                            <i class="fas fa-play"></i>
+                            Analyze All Files
+                        </button>
+                        <button class="w-full btn-secondary px-3 py-2 rounded-md text-sm font-medium transition-transform hover:scale-105 flex items-center gap-2">
+                            <i class="fas fa-save"></i>
+                            Apply All Changes
+                        </button>
+                        <button class="w-full px-3 py-2 rounded-md text-sm font-medium bg-muted hover:bg-muted/80 transition-colors flex items-center gap-2">
+                            <i class="fas fa-undo"></i>
+                            Reset Project
+                        </button>
+                    </div>
+                </div>
+            </aside>
+            <!-- @END_COMPONENT: ToolSidebar -->
+
+            <!-- @COMPONENT: EditorWorkspace [Main code editing area] -->
+            <section class="col-span-9 space-y-4">
+                
+                <!-- Editor Tabs and Controls -->
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <div class="flex bg-muted/20 rounded-lg p-1">
+                            <button class="px-3 py-1.5 text-sm rounded-md bg-primary text-primary-foreground">Original</button>
+                            <button class="px-3 py-1.5 text-sm rounded-md hover:bg-muted/50 transition-colors">Modified</button>
+                            <button class="px-3 py-1.5 text-sm rounded-md hover:bg-muted/50 transition-colors">Diff View</button>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center gap-2">
+                        <button class="px-3 py-1.5 text-sm rounded-md bg-muted/50 hover:bg-muted transition-colors flex items-center gap-2">
+                            <i class="fas fa-search"></i>
+                            Find & Focus
+                        </button>
+                        <button class="px-3 py-1.5 text-sm rounded-md bg-muted/50 hover:bg-muted transition-colors flex items-center gap-2">
+                            <i class="fas fa-eye"></i>
+                            Live Preview
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Main Code Editor -->
+                <div class="tool-panel h-96 flex overflow-hidden">
+                    <!-- Line Numbers -->
+                    <div class="w-12 bg-muted/30 text-right px-2 py-3 text-xs text-muted-foreground font-mono border-r border-border">
+                        <!-- @MAP: Array.from({length: 25}, (_, i) => i + 1).map(num => ( -->
+                        <div class="leading-5" data-mock="true">1</div>
+                        <div class="leading-5" data-mock="true">2</div>
+                        <div class="leading-5" data-mock="true">3</div>
+                        <div class="leading-5" data-mock="true">4</div>
+                        <div class="leading-5" data-mock="true">5</div>
+                        <div class="leading-5" data-mock="true">6</div>
+                        <div class="leading-5" data-mock="true">7</div>
+                        <div class="leading-5" data-mock="true">8</div>
+                        <div class="leading-5" data-mock="true">9</div>
+                        <div class="leading-5" data-mock="true">10</div>
+                        <div class="leading-5" data-mock="true">11</div>
+                        <div class="leading-5" data-mock="true">12</div>
+                        <div class="leading-5" data-mock="true">13</div>
+                        <div class="leading-5" data-mock="true">14</div>
+                        <div class="leading-5" data-mock="true">15</div>
+                        <div class="leading-5" data-mock="true">16</div>
+                        <div class="leading-5" data-mock="true">17</div>
+                        <div class="leading-5" data-mock="true">18</div>
+                        <!-- @END_MAP )) -->
+                    </div>
+                    
+                    <!-- Code Content -->
+                    <div class="flex-1 p-3 overflow-auto font-mono text-sm leading-5 syntax-highlight">
+                        <div data-mock="true" class="whitespace-pre-wrap"><!DOCTYPE html>
+<span class="tag">&lt;html</span> <span class="attribute">lang=</span><span class="string">"en"</span><span class="tag">&gt;</span>
+<span class="tag">&lt;head&gt;</span>
+  <span class="tag">&lt;meta</span> <span class="attribute">charset=</span><span class="string">"UTF-8"</span><span class="tag">&gt;</span>
+  <span class="tag">&lt;meta</span> <span class="attribute">name=</span><span class="string">"viewport"</span> <span class="attribute">content=</span><span class="string">"width=device-width, initial-scale=1.0"</span><span class="tag">&gt;</span>
+  <span class="tag">&lt;title&gt;</span>Modern Web Application<span class="tag">&lt;/title&gt;</span>
+  <span class="tag">&lt;style&gt;</span>
+    <span class="comment">/* CSS styles will be analyzed by CSS Workshop */</span>
+    <span class="keyword">.container</span> {
+      <span class="attribute">max-width:</span> <span class="string">1200px</span>;
+      <span class="attribute">margin:</span> <span class="string">0 auto</span>;
+      <span class="attribute">padding:</span> <span class="string">2rem</span>;
+    }
+    
+    <span class="keyword">.hero</span> {
+      <span class="attribute">background:</span> <span class="string">linear-gradient(135deg, #667eea 0%, #764ba2 100%)</span>;
+      <span class="attribute">padding:</span> <span class="string">4rem 0</span>;
+    }
+  <span class="tag">&lt;/style&gt;</span>
+<span class="tag">&lt;/head&gt;</span></div>
+                    </div>
+                </div>
+
+                <!-- Analysis and Diff Panels -->
+                <div class="grid grid-cols-2 gap-4 h-64">
+                    <!-- Changes Summary -->
+                    <div class="tool-panel">
+                        <div class="p-3 border-b border-border">
+                            <h4 class="text-sm font-semibold flex items-center gap-2">
+                                <i class="fas fa-list-ul text-primary"></i>
+                                Recent Changes
+                            </h4>
+                        </div>
+                        <div class="p-3 space-y-2 overflow-y-auto">
+                            <!-- CSS rule modification tracked automatically -->
+                            <div class="diff-modified p-2 rounded text-sm" data-mock="true">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-mono">Line 12: .hero padding</span>
+                                    <span class="text-xs text-muted-foreground">CSS Workshop</span>
+                                </div>
+                                <div class="text-xs text-muted-foreground mt-1">
+                                    Modified background gradient values
+                                </div>
+                            </div>
+                            
+                            <!-- Prefetch link addition suggestion -->
+                            <div class="diff-added p-2 rounded text-sm" data-mock="true">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-mono">Line 6: &lt;link rel="preconnect"&gt;</span>
+                                    <span class="text-xs text-muted-foreground">Prefetch Tools</span>
+                                </div>
+                                <div class="text-xs text-muted-foreground mt-1">
+                                    Added preconnect for Google Fonts
+                                </div>
+                            </div>
+                            
+                            <!-- Spacing normalization applied -->
+                            <div class="diff-modified p-2 rounded text-sm" data-mock="true">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-mono">Lines 8-15: Indentation</span>
+                                    <span class="text-xs text-muted-foreground">Spacing Tool</span>
+                                </div>
+                                <div class="text-xs text-muted-foreground mt-1">
+                                    Normalized to 2-space indentation
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Live Preview -->
+                    <div class="tool-panel">
+                        <div class="p-3 border-b border-border flex items-center justify-between">
+                            <h4 class="text-sm font-semibold flex items-center gap-2">
+                                <i class="fas fa-eye text-secondary"></i>
+                                Live Preview
+                            </h4>
+                            <div class="flex gap-2">
+                                <button class="text-xs px-2 py-1 rounded bg-muted/50 hover:bg-muted transition-colors">
+                                    <i class="fas fa-refresh"></i>
+                                </button>
+                                <button class="text-xs px-2 py-1 rounded bg-muted/50 hover:bg-muted transition-colors">
+                                    <i class="fas fa-external-link-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="flex-1 bg-white">
+                            <!-- Browser simulation showcasing a modern landing page -->
+                            <iframe 
+                                src="data:text/html;charset=utf-8,%3C!DOCTYPE%20html%3E%3Chtml%3E%3Chead%3E%3Cstyle%3Ebody%7Bmargin%3A0%3Bfont-family%3Asystem-ui%7D.hero%7Bbackground%3Alinear-gradient(135deg%2C%20%23667eea%200%25%2C%20%23764ba2%20100%25)%3Bpadding%3A4rem%202rem%3Btext-align%3Acenter%3Bcolor%3Awhite%7D.container%7Bmax-width%3A1200px%3Bmargin%3A0%20auto%3Bpadding%3A2rem%7D%3C/style%3E%3C/head%3E%3Cbody%3E%3Cdiv%20class%3D%22hero%22%3E%3Ch1%3EModern%20Web%20Application%3C/h1%3E%3Cp%3EBuilt%20with%20CodeMaster%20Pro%3C/p%3E%3C/div%3E%3Cdiv%20class%3D%22container%22%3E%3Cp%3EThis%20is%20a%20live%20preview%20of%20your%20code%20changes.%3C/p%3E%3C/div%3E%3C/body%3E%3C/html%3E"
+                                class="w-full h-full border-0"
+                                data-implementation="Use blob URL generation for live preview updates"
+                            ></iframe>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <!-- @END_COMPONENT: EditorWorkspace -->
+        </div>
+    </main>
+    <!-- @END_COMPONENT: MainLayout -->
+
+    <!-- @COMPONENT: OverlaySystem [Workshop tool overlays] -->
+    <!-- CSS Workshop Overlay (Hidden by default) -->
+    <div class="overlay hidden" id="cssWorkshopOverlay">
+        <div class="max-w-6xl mx-auto my-8 h-[calc(100vh-4rem)] bg-card border border-border rounded-lg shadow-2xl flex flex-col">
+            <!-- Workshop Header -->
+            <div class="p-4 border-b border-border flex items-center justify-between bg-muted/30">
+                <div class="flex items-center gap-3">
+                    <i class="fas fa-palette text-2xl text-primary"></i>
+                    <div>
+                        <h2 class="text-lg font-bold">CSS Workshop</h2>
+                        <p class="text-sm text-muted-foreground">Extract, analyze, and standardize CSS rules</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="px-3 py-1 text-xs bg-secondary/20 text-secondary rounded-full">
+                        Connected to CodeMaster
+                    </div>
+                    <button class="p-2 hover:bg-muted rounded-md transition-colors" id="closeCssWorkshop">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Workshop Content -->
+            <div class="flex-1 grid grid-cols-12 gap-4 p-4 overflow-hidden">
+                <!-- CSS Rules Panel -->
+                <div class="col-span-4 space-y-4">
+                    <div class="tool-panel p-3">
+                        <h3 class="text-sm font-semibold mb-3">Detected CSS Rules</h3>
+                        <div class="space-y-2 max-h-48 overflow-y-auto">
+                            <!-- Detected container CSS rule for editing -->
+                            <div class="p-2 bg-muted/30 rounded cursor-pointer hover:bg-muted/50 transition-colors" data-mock="true">
+                                <div class="font-mono text-sm text-primary">.container</div>
+                                <div class="text-xs text-muted-foreground">max-width, margin, padding</div>
+                            </div>
+                            
+                            <!-- Hero section styling rule -->
+                            <div class="p-2 bg-muted/30 rounded cursor-pointer hover:bg-muted/50 transition-colors" data-mock="true">
+                                <div class="font-mono text-sm text-primary">.hero</div>
+                                <div class="text-xs text-muted-foreground">background, padding</div>
+                            </div>
+                            
+                            <!-- Button styles ready for modification -->
+                            <div class="p-2 bg-muted/30 rounded cursor-pointer hover:bg-muted/50 transition-colors" data-mock="true">
+                                <div class="font-mono text-sm text-primary">.btn-primary</div>
+                                <div class="text-xs text-muted-foreground">background, border, color</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tool-panel p-3">
+                        <h3 class="text-sm font-semibold mb-3">Batch Operations</h3>
+                        <div class="space-y-2">
+                            <button class="w-full btn-primary px-3 py-2 rounded text-sm">
+                                Standardize All Rules
+                            </button>
+                            <button class="w-full btn-secondary px-3 py-2 rounded text-sm">
+                                Apply to CodeMaster
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Editor Panel -->
+                <div class="col-span-8 space-y-4">
+                    <div class="tool-panel h-80">
+                        <div class="p-3 border-b border-border">
+                            <h4 class="text-sm font-semibold">CSS Rule Editor</h4>
+                        </div>
+                        <div class="flex h-full">
+                            <div class="w-12 bg-muted/30 text-right px-2 py-3 text-xs text-muted-foreground font-mono border-r border-border">
+                                <!-- CSS editor line numbers -->
+                                <div class="leading-5" data-mock="true">1</div>
+                                <div class="leading-5" data-mock="true">2</div>
+                                <div class="leading-5" data-mock="true">3</div>
+                                <div class="leading-5" data-mock="true">4</div>
+                                <div class="leading-5" data-mock="true">5</div>
+                                <div class="leading-5" data-mock="true">6</div>
+                            </div>
+                            <textarea 
+                                class="flex-1 p-3 bg-transparent text-sm font-mono resize-none outline-none"
+                                placeholder="Select a CSS rule to edit..."
+                                data-mock="true"
+                            >.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+  box-sizing: border-box;
+}</textarea>
+                        </div>
+                    </div>
+
+                    <div class="tool-panel">
+                        <div class="p-3 border-b border-border">
+                            <h4 class="text-sm font-semibold">Live Preview</h4>
+                        </div>
+                        <div class="h-40 bg-white">
+                            <!-- CSS workshop preview showing styled component -->
+                            <iframe 
+                                src="data:text/html;charset=utf-8,%3Cstyle%3E.container%7Bmax-width%3A1200px%3Bmargin%3A0%20auto%3Bpadding%3A2rem%3Bbox-sizing%3Aborder-box%3Bborder%3A2px%20dashed%20%23ccc%7D%3C/style%3E%3Cdiv%20class%3D%22container%22%3EContainer%20Preview%3C/div%3E"
+                                class="w-full h-full border-0"
+                                data-implementation="Updates live as CSS rules are modified"
+                            ></iframe>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prefetch Workshop Overlay (Hidden by default) -->
+    <div class="overlay hidden" id="prefetchWorkshopOverlay">
+        <div class="max-w-6xl mx-auto my-8 h-[calc(100vh-4rem)] bg-card border border-border rounded-lg shadow-2xl flex flex-col">
+            <!-- Workshop Header -->
+            <div class="p-4 border-b border-border flex items-center justify-between bg-muted/30">
+                <div class="flex items-center gap-3">
+                    <i class="fas fa-link text-2xl text-primary"></i>
+                    <div>
+                        <h2 class="text-lg font-bold">Prefetch Workshop</h2>
+                        <p class="text-sm text-muted-foreground">Optimize resource loading with prefetch & preconnect</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="px-3 py-1 text-xs bg-secondary/20 text-secondary rounded-full">
+                        Connected to CodeMaster
+                    </div>
+                    <button class="p-2 hover:bg-muted rounded-md transition-colors" id="closePrefetchWorkshop">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Workshop Content -->
+            <div class="flex-1 grid grid-cols-12 gap-4 p-4 overflow-hidden">
+                <!-- Resource Analysis Panel -->
+                <div class="col-span-4 space-y-4">
+                    <div class="tool-panel p-3">
+                        <h3 class="text-sm font-semibold mb-3">Detected Resources</h3>
+                        <div class="space-y-2 max-h-48 overflow-y-auto">
+                            <!-- Google Fonts resource detected -->
+                            <div class="p-2 bg-muted/30 rounded" data-mock="true">
+                                <div class="text-sm font-mono text-primary">fonts.googleapis.com</div>
+                                <div class="text-xs text-muted-foreground">Font resource - Recommend preconnect</div>
+                                <div class="flex gap-1 mt-1">
+                                    <span class="px-2 py-0.5 text-xs bg-secondary/20 text-secondary rounded">Preconnect</span>
+                                </div>
+                            </div>
+                            
+                            <!-- External API endpoint -->
+                            <div class="p-2 bg-muted/30 rounded" data-mock="true">
+                                <div class="text-sm font-mono text-primary">api.example.com</div>
+                                <div class="text-xs text-muted-foreground">API endpoint - Recommend dns-prefetch</div>
+                                <div class="flex gap-1 mt-1">
+                                    <span class="px-2 py-0.5 text-xs bg-primary/20 text-primary rounded">DNS-Prefetch</span>
+                                </div>
+                            </div>
+                            
+                            <!-- CDN resource identified -->
+                            <div class="p-2 bg-muted/30 rounded" data-mock="true">
+                                <div class="text-sm font-mono text-primary">cdn.jsdelivr.net</div>
+                                <div class="text-xs text-muted-foreground">CDN resource - Recommend prefetch</div>
+                                <div class="flex gap-1 mt-1">
+                                    <span class="px-2 py-0.5 text-xs bg-accent/20 text-accent rounded">Prefetch</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tool-panel p-3">
+                        <h3 class="text-sm font-semibold mb-3">Optimization Actions</h3>
+                        <div class="space-y-2">
+                            <button class="w-full btn-primary px-3 py-2 rounded text-sm">
+                                Apply All Suggestions
+                            </button>
+                            <button class="w-full btn-secondary px-3 py-2 rounded text-sm">
+                                Send to CodeMaster
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Generated Code Panel -->
+                <div class="col-span-8 space-y-4">
+                    <div class="tool-panel">
+                        <div class="p-3 border-b border-border">
+                            <h4 class="text-sm font-semibold">Generated Prefetch Tags</h4>
+                        </div>
+                        <div class="p-3 font-mono text-sm bg-muted/20 h-40 overflow-auto">
+                            <div data-mock="true" class="syntax-highlight whitespace-pre-wrap"><!-- Prefetch optimizations generated by CodeMaster Pro -->
+<span class="tag">&lt;link</span> <span class="attribute">rel=</span><span class="string">"preconnect"</span> <span class="attribute">href=</span><span class="string">"https://fonts.googleapis.com"</span><span class="tag">&gt;</span>
+<span class="tag">&lt;link</span> <span class="attribute">rel=</span><span class="string">"preconnect"</span> <span class="attribute">href=</span><span class="string">"https://fonts.gstatic.com"</span> <span class="attribute">crossorigin</span><span class="tag">&gt;</span>
+<span class="tag">&lt;link</span> <span class="attribute">rel=</span><span class="string">"dns-prefetch"</span> <span class="attribute">href=</span><span class="string">"https://api.example.com"</span><span class="tag">&gt;</span>
+<span class="tag">&lt;link</span> <span class="attribute">rel=</span><span class="string">"prefetch"</span> <span class="attribute">href=</span><span class="string">"https://cdn.jsdelivr.net/npm/framework.js"</span><span class="tag">&gt;</span></div>
+                        </div>
+                    </div>
+
+                    <div class="tool-panel">
+                        <div class="p-3 border-b border-border">
+                            <h4 class="text-sm font-semibold">Performance Impact</h4>
+                        </div>
+                        <div class="p-3 space-y-3">
+                            <!-- Performance metrics visualization -->
+                            <div class="grid grid-cols-3 gap-4" data-mock="true">
+                                <div class="text-center">
+                                    <div class="text-2xl font-bold text-secondary">-230ms</div>
+                                    <div class="text-xs text-muted-foreground">DNS Lookup Time</div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="text-2xl font-bold text-primary">-480ms</div>
+                                    <div class="text-xs text-muted-foreground">Font Load Time</div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="text-2xl font-bold text-accent">+15%</div>
+                                    <div class="text-xs text-muted-foreground">Overall Performance</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- @END_COMPONENT: OverlaySystem -->
+
+    <!-- @COMPONENT: MessageBus [PostMessage communication display] -->
+    <div class="message-bus hidden" id="messageBus">
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-semibold">Message Bus</span>
+            <button class="text-xs opacity-50 hover:opacity-100" onclick="document.getElementById('messageBus').classList.add('hidden')">×</button>
+        </div>
+        <div class="space-y-1" id="messageLog">
+            <!-- @FUNCTIONALITY: This shows real-time postMessage communication between CodeMaster and workshops -->
+            <div class="text-xs text-secondary" data-mock="true">→ WORKSHOP_REQUEST_CODE</div>
+            <div class="text-xs text-primary" data-mock="true">← WORKSHOP_READY</div>
+            <div class="text-xs text-accent" data-mock="true">→ INJECT_HTML</div>
+        </div>
+    </div>
+    <!-- @END_COMPONENT: MessageBus -->
+
+    <script>
+        // @FUNCTIONALITY: This script demonstrates the overlay system and cross-tool communication
+        
+        (() => {
+            // UI State Management
+            const state = {
+                currentOverlay: null,
+                messageQueue: [],
+                workshopConnections: new Map()
+            };
+
+            // Overlay Management
+            function openWorkshop(workshopId) {
+                closeAllOverlays();
+                const overlay = document.getElementById(workshopId + 'Overlay');
+                if (overlay) {
+                    overlay.classList.remove('hidden');
+                    state.currentOverlay = workshopId;
+                    showMessageBus();
+                    simulateWorkshopHandshake(workshopId);
+                }
+            }
+
+            function closeAllOverlays() {
+                document.querySelectorAll('.overlay').forEach(overlay => {
+                    overlay.classList.add('hidden');
+                });
+                state.currentOverlay = null;
+            }
+
+            // Message Bus Simulation
+            function showMessageBus() {
+                const messageBus = document.getElementById('messageBus');
+                messageBus.classList.remove('hidden');
+            }
+
+            function logMessage(direction, message, type = 'primary') {
+                const messageLog = document.getElementById('messageLog');
+                const messageEl = document.createElement('div');
+                messageEl.className = `text-xs text-${type}`;
+                messageEl.textContent = `${direction} ${message}`;
+                messageLog.appendChild(messageEl);
+                
+                // Keep only last 5 messages
+                while (messageLog.children.length > 5) {
+                    messageLog.removeChild(messageLog.firstChild);
+                }
+            }
+
+            function simulateWorkshopHandshake(workshopId) {
+                setTimeout(() => logMessage('→', 'WORKSHOP_REQUEST_CODE', 'secondary'), 100);
+                setTimeout(() => logMessage('←', 'WORKSHOP_READY', 'primary'), 300);
+                setTimeout(() => logMessage('→', 'INJECT_HTML', 'accent'), 500);
+                setTimeout(() => logMessage('←', 'WORKSHOP_LOADED', 'secondary'), 800);
+            }
+
+            // File Upload Simulation
+            function setupFileUpload() {
+                const uploadArea = document.querySelector('.cursor-pointer');
+                const dragOverlay = document.getElementById('dragOverlay');
+
+                // Drag and drop
+                uploadArea.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    dragOverlay.classList.add('active');
+                });
+
+                uploadArea.addEventListener('dragleave', (e) => {
+                    e.preventDefault();
+                    dragOverlay.classList.remove('active');
+                });
+
+                uploadArea.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    dragOverlay.classList.remove('active');
+                    console.log('Files dropped:', e.dataTransfer.files);
+                    // TODO: Implement file processing
+                });
+            }
+
+            // Event Listeners
+            document.addEventListener('DOMContentLoaded', () => {
+                // Workshop buttons
+                document.querySelector('nav button:nth-child(1)').onclick = () => openWorkshop('cssWorkshop');
+                document.querySelector('nav button:nth-child(2)').onclick = () => openWorkshop('prefetchWorkshop');
+                
+                // Close buttons
+                document.getElementById('closeCssWorkshop').onclick = closeAllOverlays;
+                document.getElementById('closePrefetchWorkshop').onclick = closeAllOverlays;
+                
+                // Escape key to close overlays
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape' && state.currentOverlay) {
+                        closeAllOverlays();
+                    }
+                });
+
+                setupFileUpload();
+                
+                // Auto-show message bus for demo
+                setTimeout(() => showMessageBus(), 2000);
+            });
+
+            // External API for workshop communication
+            window.CodeMasterAPI = {
+                sendMessage: (message, data) => {
+                    logMessage('→', message, 'secondary');
+                    // TODO: Implement actual postMessage communication
+                },
+                
+                receiveMessage: (message, data) => {
+                    logMessage('←', message, 'primary');
+                    // TODO: Handle incoming workshop messages
+                },
+                
+                updateCode: (newCode) => {
+                    console.log('Code updated from workshop:', newCode);
+                    // TODO: Update main editor with workshop changes
+                },
+                
+                getProjectFiles: () => {
+                    // TODO: Return current project files
+                    return [];
+                }
+            };
+        })();
+    </script>
+</body>
+</html>
